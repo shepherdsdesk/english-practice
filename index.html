@@ -186,12 +186,12 @@ function adminScreen(){
  showConnection(byId('sync'),byId('pairArea'));reportHistory();
 }
 function pairing(container){
- container.innerHTML='<form><label>이름 <input required maxlength="32" autocomplete="off" placeholder="배정받은 이름"></label><p><label>연결 코드 <input required inputmode="numeric" autocomplete="off" maxlength="12" placeholder="숫자 8자리"></label></p><button class="primary">이 기기 연결</button></form><p role="status"></p>';
+ container.innerHTML='<form><label>연결 코드 <input required inputmode="numeric" autocomplete="off" maxlength="12" placeholder="숫자 8자리"></label><p></p><button class="primary">이 기기 연결</button></form><p role="status"></p>';
  const form=container.querySelector('form'),message=container.querySelector('p[role]');
  form.onsubmit=async event=>{
-  event.preventDefault();const name=form.elements[0].value.trim(),code=form.elements[1].value.replace(/[\s-]/g,'');
-  if(!name||!/^\d{8}$/.test(code)){message.textContent='이름과 숫자 8자리를 확인하세요.';return}
-  form.elements[2].disabled=true;message.textContent='연결을 확인하고 있어요.';
+  event.preventDefault();const code=form.elements[0].value.replace(/[\s-]/g,'');
+  if(!/^\d{8}$/.test(code)){message.textContent='숫자 8자리를 확인하세요.';return}
+  form.elements[1].disabled=true;message.textContent='연결을 확인하고 있어요.';
   try{
    const c=await cloud(),user=c.auth.currentUser||(await c.authApi.signInAnonymously(c.auth)).user;
    const ref=c.store.doc(c.db,'members',user.uid);
@@ -199,14 +199,14 @@ function pairing(container){
    if(!member){
     const invite=c.store.doc(c.db,'invites',code);
     await c.store.runTransaction(c.db,async tx=>{
-     const v=(await tx.get(invite)).data();if(!v||v.claimed||v.name!==name)throw Error('invalid');
-     tx.set(ref,{name,family:v.family,role:v.role,code});
+     const v=(await tx.get(invite)).data();if(!v||v.claimed)throw Error('invalid');
+     tx.set(ref,{name:v.name,family:v.family,role:v.role,code});
      tx.update(invite,{claimed:user.uid});
     });
    }
    member=await identify();if(member.role==='parent'){go('settings')}else{go('home');flushReports()}
-  }catch{message.textContent='이름과 코드가 일치하는지, 이미 사용한 코드인지 확인하세요. 인터넷에 연결한 뒤 다시 시도하세요.'}
-  finally{form.elements[2].disabled=false}
+  }catch{message.textContent='코드를 다시 확인하세요. 이미 사용한 코드는 쓸 수 없어요. 인터넷 연결도 확인해 주세요.'}
+  finally{form.elements[1].disabled=false}
  };
 }
 function issueCode(container,c,u){
@@ -242,7 +242,7 @@ async function identify(){
 }
 async function showConnection(status,form){
  try{const c=await cloud(),u=await identify();if(!status.isConnected||!adminOpen)return;
- if(!u){status.textContent='처음 한 번 이름과 코드를 입력하세요.';pairing(form);return}
+ if(!u){status.textContent='처음 한 번 연결 코드를 입력하세요.';pairing(form);return}
  form.hidden=true;
  if(u.role==='student'){status.textContent='학생 기기 연결 완료. 학습을 마치면 자동으로 보고합니다.';return}
  issueCode(byId('issueArea'),c,u);status.textContent='가족 보고함을 불러오는 중이에요.';
@@ -352,7 +352,7 @@ function render(){
   }
   if(view==='lesson'){renderLesson();button('저장하고 나가기',()=>go('home'),app,'exit')}
   if(view==='settings')adminScreen();
-  if(view==='pair'){app.innerHTML='<section><h2>이름과 코드로 연결</h2><div id="pairArea"></div></section>';pairing(byId('pairArea'))}
+  if(view==='pair'){app.innerHTML='<section><h2>기기 연결</h2><div id="pairArea"></div></section>';pairing(byId('pairArea'))}
   if(view==='alphabet')renderAlphabet();
   if(view==='words')renderWords();if(view==='personal')notebook();
   if(view==='grammar')renderGrammar();

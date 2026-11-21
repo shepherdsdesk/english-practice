@@ -4,31 +4,32 @@ service cloud.firestore {
     function member() {
       return get(/databases/$(database)/documents/members/$(request.auth.uid)).data;
     }
-    function isParentOf(family) {
-      return request.auth != null && member().role == 'parent' && member().family == family;
+    // 관리자: 가족당 1명. 앱에서는 만들 수 없고 콘솔에서만 지정합니다.
+    function isAdminOf(family) {
+      return request.auth != null && member().role == 'admin' && member().family == family;
     }
     match /invites/{code} {
       allow get: if request.auth != null;
-      allow list: if isParentOf(resource.data.family);
-      allow create: if isParentOf(request.resource.data.family) && request.resource.data.role == 'student' && code.matches('[0-9]{8}') && request.resource.data.keys().hasOnly(['name','family','role','created']) && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 32 && (!('created' in request.resource.data) || request.resource.data.created == request.time);
+      allow list: if isAdminOf(resource.data.family);
+      allow create: if isAdminOf(request.resource.data.family) && request.resource.data.role in ['student','parent'] && code.matches('[0-9]{8}') && request.resource.data.keys().hasOnly(['name','family','role','created']) && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 32 && (!('created' in request.resource.data) || request.resource.data.created == request.time);
       allow update: if request.auth != null && !('claimed' in resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimed','claimedAt']) && request.resource.data.claimed == request.auth.uid && (!('claimedAt' in request.resource.data) || request.resource.data.claimedAt == request.time) && getAfter(/databases/$(database)/documents/members/$(request.auth.uid)).data.code == code;
-      allow delete: if isParentOf(resource.data.family);
+      allow delete: if isAdminOf(resource.data.family);
     }
     match /members/{uid} {
       function invite() { return getAfter(/databases/$(database)/documents/invites/$(request.resource.data.code)).data; }
-      allow create: if request.auth != null && request.auth.uid == uid && request.resource.data.keys().hasOnly(['name','family','role','code']) && invite().claimed == uid && invite().role == request.resource.data.role && invite().name == request.resource.data.name && invite().family == request.resource.data.family;
+      allow create: if request.auth != null && request.auth.uid == uid && request.resource.data.keys().hasOnly(['name','family','role','code']) && request.resource.data.role in ['student','parent'] && invite().claimed == uid && invite().role == request.resource.data.role && invite().name == request.resource.data.name && invite().family == request.resource.data.family;
       allow get: if request.auth != null && request.auth.uid == uid;
-      allow delete: if isParentOf(resource.data.family) && resource.data.role == 'student';
+      allow delete: if isAdminOf(resource.data.family) && resource.data.role in ['student','parent'];
     }
     match /families/{family}/commands/{uid} {
       allow get: if request.auth != null && request.auth.uid == uid && member().family == family;
-      allow create, update: if isParentOf(family) && request.resource.data.keys().hasOnly(['resetAt']) && request.resource.data.resetAt == request.time;
+      allow create, update: if isAdminOf(family) && request.resource.data.keys().hasOnly(['resetAt']) && request.resource.data.resetAt == request.time;
     }
     match /families/{family}/reports/{id} {
       function belongs(role) {
         return request.auth != null && member().family == family && member().role == role;
       }
-      allow read: if belongs('parent');
+      allow read: if belongs('admin') || belongs('parent');
       allow create: if belongs('student')
         && id.matches('[a-f0-9-]{36}')
         && request.resource.data.keys().hasAll(['uid','time','body'])

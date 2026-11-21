@@ -55,6 +55,18 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:none;box-s
 .student .badge.on{background:#e2efdf;color:#174d40}
 .student small{color:#6b7d73;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .student small{grid-column:1/-1}
+.role-tag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:99px;background:#e8e6f6;color:#4b3f99;font-size:.72rem;font-weight:700;vertical-align:2px}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:14px;background:#eef3ee;margin:4px 0 6px}
+.seg button{margin:0;min-height:42px;border:0;border-radius:10px;background:transparent;color:#5b6d63;font-weight:700}
+.seg button[aria-checked=true]{background:#fff;color:#174d40;box-shadow:0 1px 3px #0000001f}
+.issued:not(:empty){display:grid;grid-template-columns:auto 1fr;align-items:center;gap:6px 8px;margin:12px 0 4px;padding:14px 16px;border-radius:14px;background:#f3f8f2;border:1.5px dashed #b9d3c0}
+.issued .role-tag{margin:0}.issued b{font-size:1rem;color:#173c35}
+.issued-code{grid-column:1/-1;font-size:1.6rem;letter-spacing:.12em;font-variant-numeric:tabular-nums;color:#174d40;text-align:center}
+.issued small{grid-column:1/-1;text-align:center;color:#5b6d63}
+.role-tag.student{background:#e2efdf;color:#174d40}
+#roleBadge{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:99px;font-size:.62rem;font-weight:800;letter-spacing:0;vertical-align:3px;background:#174d40;color:#fff}
+#roleBadge.parent{background:#e8e6f6;color:#4b3f99}#roleBadge[hidden]{display:none}
+body>header h1{white-space:nowrap}
 .student .note{grid-column:1/-1;margin:2px 0 0;font-size:.88rem;word-break:keep-all}
 .student-actions{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:6px}
 .student-actions button{width:100%;min-height:42px;margin:0;padding:6px 0;white-space:nowrap}
@@ -70,7 +82,7 @@ form > p:empty{margin:0 0 8px}
 .row:not(#choices):not(#tiles):has(> button):not(:has(> :not(button))) > button:first-child:nth-last-child(odd){grid-column:1/-1}
 .hero .primary{min-width:0}
 </style></head>
-<body><header><img src="./icon-192.png" width="40" height="40" alt=""><h1>기초영어 연습장</h1><button id="install" type="button">홈 화면에 추가</button></header>
+<body><header><img src="./icon-192.png" width="40" height="40" alt=""><h1>기초영어 연습장<span id="roleBadge" hidden></span></h1><button id="install" type="button">홈 화면에 추가</button></header>
 <main><nav id="nav" aria-label="학습 메뉴"></nav><div id="app"></div></main>
 <script src="./firebase-config.js"></script><script>
 'use strict';
@@ -228,16 +240,16 @@ function adminScreen(){
  return;
  }
  settings();
- app.insertAdjacentHTML('afterbegin','<section><h2>관리자 모드</h2><button id="student">학생 모드로 돌아가기</button></section>');
+ app.insertAdjacentHTML('afterbegin','<section><h2 id="modeTitle">관리자 모드</h2><button id="student">학생 모드로 돌아가기</button></section>');
  byId('student').onclick=()=>go('home');
- app.insertAdjacentHTML('afterbegin','<section id="studentsBox" hidden><h2>학생 관리</h2><div id="issueArea"></div><div id="studentList"></div><p id="studentStatus" class="note" role="status"></p></section><section id="shareBox"><h2>앱 주소 보내기</h2><p>학생 휴대폰에는 학생용, 보호자 휴대폰에는 보호자용 주소를 보내세요.</p><div class="row" id="shareArea"></div><p id="shareStatus" class="note" role="status"></p></section>');
+ app.insertAdjacentHTML('afterbegin','<section id="studentsBox" hidden><h2>가족 관리</h2><div id="issueArea"></div><div id="studentList"></div><p id="studentStatus" class="note" role="status"></p></section><section id="shareBox" hidden><h2>앱 주소 보내기</h2><p>학생 휴대폰에는 학생용, 보호자 휴대폰에는 보호자용 주소를 보내세요.</p><div class="row" id="shareArea"></div><p id="shareStatus" class="note" role="status"></p></section>');
  app.insertAdjacentHTML('afterbegin','<section><h2>가족 학습 보고함</h2><p id="sync" role="status"></p><div id="received"></div><div id="pairArea"></div></section>');
- shareLinks(byId('shareArea'),byId('shareStatus'));if(state.cloudRole==='student')byId('shareBox').hidden=true;
+ shareLinks(byId('shareArea'),byId('shareStatus'));
  app.insertAdjacentHTML('beforeend','<section><h3>이 기기의 완료 기록</h3><ul id="history"></ul></section>');
  showConnection(byId('sync'),byId('pairArea'));reportHistory();
 }
 function pairing(container){
- container.innerHTML='<p class="pair-lead">보호자에게 받은 <b>8자리 코드</b>를 입력하세요.</p><form class="pair-form"><input class="code-input" required inputmode="numeric" autocomplete="one-time-code" maxlength="9" placeholder="0000 0000" aria-label="연결 코드"><button class="primary">연결하기</button></form><p class="pair-status" role="status"></p>';
+ container.innerHTML='<p class="pair-lead">관리자에게 받은 <b>8자리 코드</b>를 입력하세요.</p><form class="pair-form"><input class="code-input" required inputmode="numeric" autocomplete="one-time-code" maxlength="9" placeholder="0000 0000" aria-label="연결 코드"><button class="primary">연결하기</button></form><p class="pair-status" role="status"></p>';
  const form=container.querySelector('form'),message=container.querySelector('p[role]'),codeBox=form.elements[0];
  codeBox.oninput=()=>{const d=codeBox.value.replace(/\D/g,'').slice(0,8);codeBox.value=d.length>4?d.slice(0,4)+' '+d.slice(4):d};
  form.onsubmit=async event=>{
@@ -256,19 +268,21 @@ function pairing(container){
      tx.update(invite,{claimed:user.uid,claimedAt:c.store.serverTimestamp()});
     });
    }
-   member=await identify();if(member.role==='parent'){go('settings')}else{go('home');flushReports()}
+   member=await identify();if(member.role!=='student'){go('settings')}else{go('home');flushReports()}
   }catch{message.textContent='코드를 다시 확인하세요. 이미 사용한 코드는 쓸 수 없어요. 인터넷 연결도 확인해 주세요.'}
   finally{form.elements[1].disabled=false}
  };
 }
 function issueCode(container,c,u){
- container.innerHTML='<h3>새 학생 배정</h3><form><label>학생 이름 <input required maxlength="32" placeholder="학습에 사용할 이름"></label> <button class="primary">일회용 코드 발급</button></form><p role="status"></p>';
- const form=container.querySelector('form'),out=container.querySelector('p');
+ container.innerHTML='<h3>새 코드 발급</h3><div class="seg" role="radiogroup" aria-label="발급 대상"><button type="button" data-role="student" aria-checked="true" role="radio">학생</button><button type="button" data-role="parent" aria-checked="false" role="radio">보호자</button></div><form><label>이름 <input required maxlength="32" placeholder="학생 이름"></label><button class="primary">학생 코드 발급</button></form><p class="note issued" role="status"></p>';
+ const form=container.querySelector('form'),out=container.querySelector('.issued'),seg=container.querySelector('.seg');let role='student';
+ const setRole=r=>{role=r;seg.querySelectorAll('button').forEach(b=>b.setAttribute('aria-checked',String(b.dataset.role===r)));const k=r==='student'?'학생':'보호자';form.elements[0].placeholder=k+' 이름';form.elements[1].textContent=k+' 코드 발급'};
+ seg.onclick=e=>{const b=e.target.closest('button');if(b)setRole(b.dataset.role)};
  form.onsubmit=async e=>{e.preventDefault();const name=form.elements[0].value.trim();if(!name)return;
  const code=Array.from(crypto.getRandomValues(new Uint32Array(8)),x=>x%10).join('');
  form.elements[1].disabled=true;
- try{await c.store.setDoc(c.store.doc(c.db,'invites',code),{name,role:'student',family:u.family,created:c.store.serverTimestamp()});form.reset();
- out.textContent=name+' · '+code.match(/.{4}/g).join(' ')+' · 학생 기기에서 이 코드를 입력하세요.'}
+ try{await c.store.setDoc(c.store.doc(c.db,'invites',code),{name,role,family:u.family,created:c.store.serverTimestamp()});form.reset();
+ const k=role==='student'?'학생':'보호자';out.replaceChildren();const tag=document.createElement('span');tag.className='role-tag'+(role==='student'?' student':'');tag.textContent=k+'용';const who=document.createElement('b');who.textContent=name;const num=document.createElement('strong');num.className='issued-code';num.textContent=code.match(/.{4}/g).join(' ');const tip=document.createElement('small');tip.textContent=k+' 기기의 기기 연결 화면에 입력하세요.';out.append(tag,who,num,tip)}
  catch{out.textContent='발급하지 못했어요. 연결을 확인하고 다시 시도하세요.'}finally{form.elements[1].disabled=false}};
 }
 let firebaseReady, familyUser, unsubscribe;
@@ -289,21 +303,23 @@ async function identify(){
  if(!user)return null;
  const data=(await c.store.getDoc(c.store.doc(c.db,'members',user.uid))).data();
  if(!data){if(state.cloudRole){state.cloudRole=null;state.cloudUid=null;state.cloudName=null;persist()}return null}
- if(!['parent','student'].includes(data.role)||!data.family||data.family.includes('/'))throw Error('member');
+ if(!['admin','parent','student'].includes(data.role)||!data.family||data.family.includes('/'))throw Error('member');
  familyUser={...data,uid:user.uid};if(data.role==='student')watchCommands(c,familyUser);state.cloudUid=user.uid;state.cloudRole=data.role;state.cloudName=data.role==='student'?data.name:null;if(data.role==='student')state.parentDevice=false;persist();return familyUser;
 }
 async function showConnection(status,form){
  try{const c=await cloud(),u=await identify();if(!status.isConnected||!adminOpen)return;
  if(!u){status.textContent='처음 한 번 연결 코드를 입력하세요.';pairing(form);return}
- form.hidden=true;
+ form.hidden=true;if(byId('modeTitle'))byId('modeTitle').textContent={admin:'관리자 모드',parent:'보호자 모드',student:'학생 기기 설정'}[u.role];
  if(u.role==='student'){status.textContent='학생 기기 연결 완료. 학습을 마치면 자동으로 보고합니다.';if(byId('shareBox'))byId('shareBox').hidden=true;return}
- byId('studentsBox').hidden=false;issueCode(byId('issueArea'),c,u);const stopStudents=watchStudents(c,u);status.textContent='가족 보고함을 불러오는 중이에요.';
+ let stopStudents=()=>{};
+ if(u.role==='admin'){byId('studentsBox').hidden=false;byId('shareBox').hidden=false;issueCode(byId('issueArea'),c,u);stopStudents=watchStudents(c,u)}else if(byId('shareBox'))byId('shareBox').hidden=true;
+ status.textContent='가족 보고함을 불러오는 중이에요.';
  const q=c.store.query(c.store.collection(c.db,'families',u.family,'reports'),c.store.orderBy('time','desc'),c.store.limit(30));
  const stopReports=c.store.onSnapshot(q,{includeMetadataChanges:true},snap=>{
  if(!status.isConnected||!adminOpen)return;
  const container=byId('received');container.replaceChildren();
  for(const doc of snap.docs){const r=doc.data(),card=document.createElement('article'),stamp=document.createElement('small'),body=document.createElement('p');stamp.textContent=r.time.toDate().toLocaleString('ko-KR');body.textContent=r.body;body.style.whiteSpace='pre-line';card.append(stamp,body);container.append(card)}
- status.textContent=(snap.metadata.fromCache?'저장된 기록':'실시간 연결')+' · 최근 보고 '+snap.size+'건';
+ status.textContent=(u.role==='admin'?'관리자':'보호자')+' · '+(snap.metadata.fromCache?'저장된 기록':'실시간 연결')+' · 최근 보고 '+snap.size+'건';
  },()=>status.textContent='보고함 조회에 실패했어요. 권한과 연결을 확인하세요.');
  unsubscribe=()=>{stopReports();stopStudents()};
  }catch{if(status.isConnected)status.textContent='README의 Firebase 설정과 계정 등록을 확인하세요.'}
@@ -320,13 +336,13 @@ function watchStudents(c,u){
  const q=c.store.query(c.store.collection(c.db,'invites'),c.store.where('family','==',u.family));
  return c.store.onSnapshot(q,snap=>{
   if(!list.isConnected)return;
-  const rows=snap.docs.map(d=>({code:d.id,...d.data()})).filter(r=>!(r.role==='parent'&&r.claimed===u.uid))
+  const rows=snap.docs.map(d=>({code:d.id,...d.data()})).filter(r=>r.claimed!==u.uid&&r.role!=='admin')
    .sort((a,b)=>(b.created?.toMillis?.()||0)-(a.created?.toMillis?.()||0));
   list.replaceChildren();
-  if(!rows.length){const p=document.createElement('p');p.textContent='아직 배정한 학생이 없어요.';list.append(p);return}
+  if(!rows.length){const p=document.createElement('p');p.textContent='아직 발급한 코드가 없어요.';list.append(p);return}
   for(const r of rows){
    const row=document.createElement('div');row.className='student';
-   const name=document.createElement('b');name.textContent=r.name+(r.role==='parent'&&r.name!=='보호자'?' (보호자)':'');
+   const name=document.createElement('b');name.textContent=r.name;if(r.role==='parent'){const tag=document.createElement('span');tag.className='role-tag';tag.textContent='보호자';name.append(tag)}
    const badge=document.createElement('span');badge.className='badge'+(r.claimed?' on':'');badge.textContent=r.claimed?'연결됨':'대기 중';
    const info=document.createElement('small');const when=(r.claimed?r.claimedAt:r.created)?.toDate?.();
    info.textContent=r.code.replace(/(\d{4})(?=\d)/g,'$1 ')+(when?' · '+when.toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'})+(r.claimed?' 연결':' 발급'):'');
@@ -338,7 +354,7 @@ function watchStudents(c,u){
      try{await run();note.textContent=r.name+' '+done}catch{note.textContent='처리하지 못했어요. 인터넷 연결을 확인하고 다시 시도하세요.'}
      finally{b.disabled=false;b.classList.remove('danger');b.textContent=label}};
     b.addEventListener('reset',()=>{clearTimeout(timer);b.classList.remove('danger');b.textContent=label;note.textContent=''})};
-   const unlink=async()=>{const batch=c.store.writeBatch(c.db);if(r.claimed&&r.role==='student')batch.delete(c.store.doc(c.db,'members',r.claimed));batch.delete(c.store.doc(c.db,'invites',r.code));await batch.commit()};
+   const unlink=async()=>{const batch=c.store.writeBatch(c.db);if(r.claimed)batch.delete(c.store.doc(c.db,'members',r.claimed));batch.delete(c.store.doc(c.db,'invites',r.code));await batch.commit()};
    if(r.claimed&&r.role==='student'){
     action('진도 초기화','초기화 확인','진도를 처음부터 다시 시작할까요? 아이 폰이 다음에 앱을 열 때 지워져요.',
      ()=>c.store.setDoc(c.store.doc(c.db,'families',u.family,'commands',r.claimed),{resetAt:c.store.serverTimestamp()}),
@@ -396,7 +412,7 @@ const praise={
 const pick=list=>list[Math.floor(Math.random()*list.length)];
 function batchSize(){return Number(state.batch)||20}
 function settings(){
- app.innerHTML='<section><h2>관리자 설정</h2><form id="prefs"><label>회차당 단어 수<input id="batch" type="number" min="1" max="100" required></label><small>1~100개 · 새로 시작하는 학습부터 적용</small><label>발음 음성<select id="voice"><option value="">미국식 사전 발음 우선</option></select></label><label>듣기 속도<select id="rate"><option value="1">보통</option><option value="0.85">천천히</option></select></label><button class="primary">설정 저장</button></form><div id="preview"></div><p id="feedback" role="status"></p></section>';
+ app.innerHTML='<section><h2>학습 설정</h2><form id="prefs"><label>회차당 단어 수<input id="batch" type="number" min="1" max="100" required></label><small>1~100개 · 새로 시작하는 학습부터 적용</small><label>발음 음성<select id="voice"><option value="">미국식 사전 발음 우선</option></select></label><label>듣기 속도<select id="rate"><option value="1">보통</option><option value="0.85">천천히</option></select></label><button class="primary">설정 저장</button></form><div id="preview"></div><p id="feedback" role="status"></p></section>';
  const batch=document.getElementById('batch'),voice=document.getElementById('voice'),rate=document.getElementById('rate');
  batch.value=batchSize();rate.value=state.rate||1;
  const populate=()=>{const selection=voice.value||state.voice||'';voice.length=1;voices().forEach(v=>voice.add(new Option(v.name,v.voiceURI)));voice.value=selection};
@@ -459,6 +475,7 @@ function focusField(){
   if(field&&matchMedia('(pointer:fine)').matches)field.focus();
 }
 function render(){
+ {const rb=document.getElementById('roleBadge'),label={admin:'관리자',parent:'보호자'}[state.cloudRole];if(rb){rb.hidden=!label;rb.textContent=label||'';rb.className=state.cloudRole||''}}
  if(unsubscribe){unsubscribe();unsubscribe=null}
   state.session=lesson;
   persist();
@@ -612,7 +629,7 @@ function renderGrammar(){
   button('정답 보기',()=>result(`1번 ${items[1]} · 2번 ${items[3]}`),actions);
 }
 if(new URLSearchParams(location.search).has('parent')){state.parentDevice=true;persist()}
-if(state.cloudRole==='parent'||(state.parentDevice&&state.cloudRole!=='student'))view='settings';
+if(state.cloudRole==='admin'||state.cloudRole==='parent'||(state.parentDevice&&state.cloudRole!=='student'))view='settings';
 render();flushReports();
 if(state.cloudRole==='student'&&navigator.onLine)identify().then(()=>{if(view==='home')render()}).catch(()=>{});
 </script><dialog id="guide"><h2>홈 화면에 추가</h2><p id="instruction"></p><form method="dialog"><button class="primary">확인</button></form></dialog>

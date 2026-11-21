@@ -1,0 +1,25 @@
+{
+  "id": "./",
+  "name": "기초영어 연습장",
+  "short_name": "영어 연습장",
+  "lang": "ko",
+  "scope": "./",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f8f8f3",
+  "theme_color": "#165349",
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

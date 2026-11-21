@@ -29,7 +29,17 @@ label[for=topic]{display:block;margin:0 0 6px;font-weight:650}#topic{width:100%;
 ol:not(:has(li)),ul:not(:has(li)){padding-left:0}
 button.danger{background:#b3261e;color:#fff;border-color:#b3261e}button.danger:hover{background:#8c1d18}
 #grammar{width:100%;min-height:46px}
-#resetStatus:empty{display:none}#resetStatus{font-weight:650}
+#resetStatus:empty{display:none}
+.note:empty{display:none}
+.student{display:grid;grid-template-columns:minmax(0,1fr) 96px;align-items:center;gap:4px 12px;padding:12px 0;border-top:1px solid #e3ebe4}
+.student:first-child{border-top:0}
+.student b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.student .badge{justify-self:stretch;text-align:center;font-size:.78rem;font-weight:700;padding:4px 0;border-radius:99px;background:#f1efe6;color:#7a6a2c;white-space:nowrap}
+.student .badge.on{background:#e2efdf;color:#174d40}
+.student small{color:#6b7d73;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.student button{width:96px;min-height:40px;padding:6px 0;white-space:nowrap}
+#studentList{margin-top:8px}
+#issueArea h3{margin-top:4px}#resetStatus{font-weight:650}
 label:has(> input:not([type=checkbox]):not([type=radio])),label:has(> select){display:grid;gap:6px;font-weight:650}
 label:has(> input:not([type=checkbox]):not([type=radio])) > input,label:has(> select) > select{width:100%;min-height:46px;margin:0}
 form > button{width:100%;min-height:46px;margin-top:4px}
@@ -198,7 +208,9 @@ function adminScreen(){
  settings();
  app.insertAdjacentHTML('afterbegin','<section><h2>관리자 모드</h2><button id="student">학생 모드로 돌아가기</button></section>');
  byId('student').onclick=()=>go('home');
- app.insertAdjacentHTML('afterbegin','<section><h2>가족 학습 보고함</h2><p id="sync" role="status"></p><div id="received"></div><div id="pairArea"></div><div id="issueArea"></div></section>');
+ app.insertAdjacentHTML('afterbegin','<section id="studentsBox" hidden><h2>학생 관리</h2><div id="issueArea"></div><div id="studentList"></div><p id="studentStatus" class="note" role="status"></p></section><section><h2>앱 주소 보내기</h2><p>학생 휴대폰에는 학생용, 보호자 휴대폰에는 보호자용 주소를 보내세요.</p><div class="row" id="shareArea"></div><p id="shareStatus" class="note" role="status"></p></section>');
+ app.insertAdjacentHTML('afterbegin','<section><h2>가족 학습 보고함</h2><p id="sync" role="status"></p><div id="received"></div><div id="pairArea"></div></section>');
+ shareLinks(byId('shareArea'),byId('shareStatus'));
  app.insertAdjacentHTML('beforeend','<section><h3>이 기기의 완료 기록</h3><ul id="history"></ul></section>');
  showConnection(byId('sync'),byId('pairArea'));reportHistory();
 }
@@ -218,7 +230,7 @@ function pairing(container){
     await c.store.runTransaction(c.db,async tx=>{
      const v=(await tx.get(invite)).data();if(!v||v.claimed)throw Error('invalid');
      tx.set(ref,{name:v.name,family:v.family,role:v.role,code});
-     tx.update(invite,{claimed:user.uid});
+     tx.update(invite,{claimed:user.uid,claimedAt:c.store.serverTimestamp()});
     });
    }
    member=await identify();if(member.role==='parent'){go('settings')}else{go('home');flushReports()}
@@ -227,13 +239,13 @@ function pairing(container){
  };
 }
 function issueCode(container,c,u){
- container.innerHTML='<h3>학생 코드 배정</h3><form><label>학생 이름 <input required maxlength="32" placeholder="학습에 사용할 이름"></label> <button>일회용 코드 발급</button></form><p role="status"></p>';
+ container.innerHTML='<h3>새 학생 배정</h3><form><label>학생 이름 <input required maxlength="32" placeholder="학습에 사용할 이름"></label> <button>일회용 코드 발급</button></form><p role="status"></p>';
  const form=container.querySelector('form'),out=container.querySelector('p');
  form.onsubmit=async e=>{e.preventDefault();const name=form.elements[0].value.trim();if(!name)return;
  const code=Array.from(crypto.getRandomValues(new Uint32Array(8)),x=>x%10).join('');
  form.elements[1].disabled=true;
- try{await c.store.setDoc(c.store.doc(c.db,'invites',code),{name,role:'student',family:u.family});
- out.textContent=name+' · '+code.match(/.{4}/g).join(' ')+' · 학생 기기에 입력하세요.'}
+ try{await c.store.setDoc(c.store.doc(c.db,'invites',code),{name,role:'student',family:u.family,created:c.store.serverTimestamp()});form.reset();
+ out.textContent=name+' · '+code.match(/.{4}/g).join(' ')+' · 학생 기기에서 이 코드를 입력하세요.'}
  catch{out.textContent='발급하지 못했어요. 연결을 확인하고 다시 시도하세요.'}finally{form.elements[1].disabled=false}};
 }
 let firebaseReady, familyUser, unsubscribe;
@@ -253,24 +265,58 @@ async function identify(){
  const c=await cloud(),user=c.auth.currentUser;familyUser=null;
  if(!user)return null;
  const data=(await c.store.getDoc(c.store.doc(c.db,'members',user.uid))).data();
- if(!data)return null;
+ if(!data){if(state.cloudRole){state.cloudRole=null;state.cloudUid=null;persist()}return null}
  if(!['parent','student'].includes(data.role)||!data.family||data.family.includes('/'))throw Error('member');
- familyUser={...data,uid:user.uid};state.cloudUid=user.uid;state.cloudRole=data.role;persist();return familyUser;
+ familyUser={...data,uid:user.uid};state.cloudUid=user.uid;state.cloudRole=data.role;if(data.role==='student')state.parentDevice=false;persist();return familyUser;
 }
 async function showConnection(status,form){
  try{const c=await cloud(),u=await identify();if(!status.isConnected||!adminOpen)return;
  if(!u){status.textContent='처음 한 번 연결 코드를 입력하세요.';pairing(form);return}
  form.hidden=true;
  if(u.role==='student'){status.textContent='학생 기기 연결 완료. 학습을 마치면 자동으로 보고합니다.';return}
- issueCode(byId('issueArea'),c,u);status.textContent='가족 보고함을 불러오는 중이에요.';
+ byId('studentsBox').hidden=false;issueCode(byId('issueArea'),c,u);const stopStudents=watchStudents(c,u);status.textContent='가족 보고함을 불러오는 중이에요.';
  const q=c.store.query(c.store.collection(c.db,'families',u.family,'reports'),c.store.orderBy('time','desc'),c.store.limit(30));
- unsubscribe=c.store.onSnapshot(q,{includeMetadataChanges:true},snap=>{
+ const stopReports=c.store.onSnapshot(q,{includeMetadataChanges:true},snap=>{
  if(!status.isConnected||!adminOpen)return;
  const container=byId('received');container.replaceChildren();
  for(const doc of snap.docs){const r=doc.data(),card=document.createElement('article'),stamp=document.createElement('small'),body=document.createElement('p');stamp.textContent=r.time.toDate().toLocaleString('ko-KR');body.textContent=r.body;body.style.whiteSpace='pre-line';card.append(stamp,body);container.append(card)}
  status.textContent=(snap.metadata.fromCache?'저장된 기록':'실시간 연결')+' · 최근 보고 '+snap.size+'건';
  },()=>status.textContent='보고함 조회에 실패했어요. 권한과 연결을 확인하세요.');
+ unsubscribe=()=>{stopReports();stopStudents()};
  }catch{if(status.isConnected)status.textContent='README의 Firebase 설정과 계정 등록을 확인하세요.'}
+}
+function appUrl(parent){return location.origin+location.pathname.replace(/index\.html$/,'')+(parent?'?parent':'')}
+function shareLinks(area,note){
+ const share=async(parent)=>{const url=appUrl(parent),title=parent?'기초영어 연습장 (보호자용)':'기초영어 연습장';
+  try{if(navigator.share){await navigator.share({title,url});return}}catch(e){if(e?.name==='AbortError')return}
+  try{await navigator.clipboard.writeText(url);note.textContent=(parent?'보호자용':'학생용')+' 주소를 복사했어요. '+url}catch{note.textContent=url}};
+ button('학생용 주소',()=>share(false),area);button('보호자용 주소',()=>share(true),area);
+}
+function watchStudents(c,u){
+ const list=byId('studentList'),note=byId('studentStatus');
+ const q=c.store.query(c.store.collection(c.db,'invites'),c.store.where('family','==',u.family));
+ return c.store.onSnapshot(q,snap=>{
+  if(!list.isConnected)return;
+  const rows=snap.docs.map(d=>({code:d.id,...d.data()})).filter(r=>!(r.role==='parent'&&r.claimed===u.uid))
+   .sort((a,b)=>(b.created?.toMillis?.()||0)-(a.created?.toMillis?.()||0));
+  list.replaceChildren();
+  if(!rows.length){const p=document.createElement('p');p.textContent='아직 배정한 학생이 없어요.';list.append(p);return}
+  for(const r of rows){
+   const row=document.createElement('div');row.className='student';
+   const name=document.createElement('b');name.textContent=r.name+(r.role==='parent'&&r.name!=='보호자'?' (보호자)':'');
+   const badge=document.createElement('span');badge.className='badge'+(r.claimed?' on':'');badge.textContent=r.claimed?'연결됨':'대기 중';
+   const info=document.createElement('small');const when=(r.claimed?r.claimedAt:r.created)?.toDate?.();
+   info.textContent=r.code.replace(/(\d{4})(?=\d)/g,'$1 ')+(when?' · '+when.toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'})+(r.claimed?' 연결':' 발급'):'');
+   const act=document.createElement('button');act.type='button';const label=r.claimed?'연결 해제':'코드 취소';act.textContent=label;let timer;
+   act.onclick=async()=>{
+    if(!act.classList.contains('danger')){act.classList.add('danger');act.textContent=r.claimed?'해제 확인':'취소 확인';note.textContent=r.name+(r.claimed?' 기기 연결을 해제할까요? 해제하면 그 기기는 보고를 보낼 수 없어요.':' 코드를 취소할까요?');timer=setTimeout(()=>{act.classList.remove('danger');act.textContent=label;note.textContent=''},5000);return}
+    clearTimeout(timer);act.disabled=true;
+    try{const batch=c.store.writeBatch(c.db);if(r.claimed&&r.role==='student')batch.delete(c.store.doc(c.db,'members',r.claimed));batch.delete(c.store.doc(c.db,'invites',r.code));await batch.commit();
+     note.textContent=r.name+(r.claimed?' 기기 연결을 해제했어요. 다시 연결하려면 새 코드를 발급하세요.':' 코드를 취소했어요.')}
+    catch{act.disabled=false;note.textContent='처리하지 못했어요. 인터넷 연결을 확인하고 다시 시도하세요.'}};
+   row.append(name,badge,info,act);list.append(row);
+  }
+ },()=>{note.textContent='학생 목록을 불러오지 못했어요.'});
 }
 function reportHistory(){
  const list=byId('history');if(!list)return;list.replaceChildren();
@@ -500,7 +546,8 @@ function renderGrammar(){
   if(grammarIndex+1<grammar.length)button('다음 문법',()=>{grammarIndex++;render()},actions);
   button('정답 보기',()=>result(`1번 ${items[1]} · 2번 ${items[3]}`),actions);
 }
-if(state.cloudRole==='parent')view='settings';
+if(new URLSearchParams(location.search).has('parent')){state.parentDevice=true;persist()}
+if(state.cloudRole==='parent'||(state.parentDevice&&state.cloudRole!=='student'))view='settings';
 render();flushReports();
 </script><dialog id="guide"><h2>홈 화면에 추가</h2><p id="instruction"></p><form method="dialog"><button class="primary">확인</button></form></dialog>
 <script>

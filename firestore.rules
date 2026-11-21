@@ -4,15 +4,21 @@ service cloud.firestore {
     function member() {
       return get(/databases/$(database)/documents/members/$(request.auth.uid)).data;
     }
+    function isParentOf(family) {
+      return request.auth != null && member().role == 'parent' && member().family == family;
+    }
     match /invites/{code} {
       allow get: if request.auth != null;
-      allow create: if request.auth != null && member().role == 'parent' && request.resource.data.family == member().family && request.resource.data.role == 'student' && code.matches('[0-9]{8}') && request.resource.data.keys().hasOnly(['name','family','role']) && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 32;
-      allow update: if request.auth != null && !('claimed' in resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimed']) && request.resource.data.claimed == request.auth.uid && getAfter(/databases/$(database)/documents/members/$(request.auth.uid)).data.code == code;
+      allow list: if isParentOf(resource.data.family);
+      allow create: if isParentOf(request.resource.data.family) && request.resource.data.role == 'student' && code.matches('[0-9]{8}') && request.resource.data.keys().hasOnly(['name','family','role','created']) && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 32 && (!('created' in request.resource.data) || request.resource.data.created == request.time);
+      allow update: if request.auth != null && !('claimed' in resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimed','claimedAt']) && request.resource.data.claimed == request.auth.uid && (!('claimedAt' in request.resource.data) || request.resource.data.claimedAt == request.time) && getAfter(/databases/$(database)/documents/members/$(request.auth.uid)).data.code == code;
+      allow delete: if isParentOf(resource.data.family);
     }
     match /members/{uid} {
       function invite() { return getAfter(/databases/$(database)/documents/invites/$(request.resource.data.code)).data; }
       allow create: if request.auth != null && request.auth.uid == uid && request.resource.data.keys().hasOnly(['name','family','role','code']) && invite().claimed == uid && invite().role == request.resource.data.role && invite().name == request.resource.data.name && invite().family == request.resource.data.family;
       allow get: if request.auth != null && request.auth.uid == uid;
+      allow delete: if isParentOf(resource.data.family) && resource.data.role == 'student';
     }
     match /families/{family}/reports/{id} {
       function belongs(role) {

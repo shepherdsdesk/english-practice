@@ -1,6 +1,21 @@
 const prefix='english-practice:'+self.registration.scope+':';
-const cacheName=prefix+'seoul-family-v7-cheer';
+const cacheName=prefix+'v8-fresh';
 const assets=['./','./index.html','./firebase-config.js','./manifest.webmanifest','./icon-180.png','./icon-192.png','./icon-512.png'];
-self.addEventListener('install',e=>e.waitUntil(caches.open(cacheName).then(c=>c.addAll(assets)).then(()=>self.skipWaiting())));
+// 새 버전을 받을 때 브라우저의 HTTP 캐시를 건너뛰고 서버에서 직접 받습니다.
+self.addEventListener('install',e=>e.waitUntil(caches.open(cacheName).then(c=>c.addAll(assets.map(u=>new Request(u,{cache:'reload'})))).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith(prefix)&&k!==cacheName).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
-self.addEventListener('fetch',e=>{if(e.request.method!=='GET'||!e.request.url.startsWith(self.registration.scope))return;e.respondWith(caches.open(cacheName).then(async c=>(await c.match(e.request))||(e.request.mode==='navigate'&&await c.match('./index.html'))||fetch(e.request)))});
+self.addEventListener('fetch',e=>{
+  const req=e.request;
+  if(req.method!=='GET'||!req.url.startsWith(self.registration.scope))return;
+  const url=new URL(req.url);
+  const fresh=req.mode==='navigate'||/\/(index\.html|firebase-config\.js)?$/.test(url.pathname);
+  if(fresh){
+    // 화면과 설정은 인터넷이 되면 항상 최신 것을, 안 되면 저장본을 보여 줍니다.
+    e.respondWith(fetch(req,{cache:'no-store'}).then(res=>{
+      if(res.ok){const copy=res.clone();caches.open(cacheName).then(c=>c.put(req.mode==='navigate'?'./index.html':req,copy))}
+      return res;
+    }).catch(async()=>{const c=await caches.open(cacheName);return (await c.match(req,{ignoreSearch:true}))||(await c.match('./index.html'))}));
+    return;
+  }
+  e.respondWith(caches.open(cacheName).then(async c=>(await c.match(req))||fetch(req)));
+});

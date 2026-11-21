@@ -30,6 +30,19 @@ ol:not(:has(li)),ul:not(:has(li)){padding-left:0}
 button.danger{background:#b3261e;color:#fff;border-color:#b3261e}button.danger:hover{background:#8c1d18}
 #grammar{width:100%;min-height:46px}
 #resetStatus:empty{display:none}
+input:not([type=checkbox]):not([type=radio]),select{border:1.5px solid #cfdcd3;border-radius:12px;background:#fff;color:#173c35}
+input:focus,select:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 4px #1766531f}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:none;box-shadow:0 0 0 4px #17665333}
+.pair-card{text-align:center;padding-top:28px;padding-bottom:26px}
+.pair-icon{width:64px;height:64px;border-radius:18px;display:block;margin:0 auto 14px}
+.pair-card h2{margin-bottom:6px}
+.pair-lead{margin:0 0 18px;color:#5b6d63;word-break:keep-all}.pair-lead b{color:#173c35}
+.pair-form{display:grid;gap:10px;margin:0}
+.code-input{width:100%;height:62px;font-size:1.7rem;font-weight:700;text-align:center;letter-spacing:.14em;font-variant-numeric:tabular-nums;padding:0}
+.code-input::placeholder{color:#c3cfc7;font-weight:600}
+.pair-form button{width:100%;min-height:52px;font-size:1.05rem;margin:0}
+.pair-status:empty{display:none}.pair-status{margin:12px 0 0;font-size:.9rem;color:#5b6d63;word-break:keep-all}
+#pairArea .pair-lead{text-align:left}.pair-card #pairArea .pair-lead{text-align:center}
 .cheer p,main p{word-break:keep-all}
 .cheer h2{font-size:clamp(2rem,9vw,3.2rem);white-space:nowrap}
 .cheer .cheer-line{font-size:1.05rem;color:#fff;line-height:1.55}
@@ -158,7 +171,8 @@ function notebook(){
 const stages=['보고 듣기','글자 순서 맞추기','안 보고 철자 쓰기','뜻 떠올리기'];
 const menus={home:'오늘의 학습',alphabet:'알파벳',words:'단어장',grammar:'문법',review:'오답 복습',settings:'관리자 설정'};
 const normalized=value=>value.trim().toLowerCase();
-function persist(){try{localStorage.setItem(key,JSON.stringify(state))}catch{}}
+let wiping=false;
+function persist(){if(wiping)return;try{localStorage.setItem(key,JSON.stringify(state))}catch{}}
 function go(page){if(page!=="settings")adminOpen=false;view=page;render()}
 function result(message){document.getElementById('feedback').textContent=message}
 let player, soundId=0;
@@ -219,8 +233,9 @@ function adminScreen(){
  showConnection(byId('sync'),byId('pairArea'));reportHistory();
 }
 function pairing(container){
- container.innerHTML='<form><label>연결 코드 <input required inputmode="numeric" autocomplete="off" maxlength="12" placeholder="숫자 8자리"></label><p></p><button class="primary">이 기기 연결</button></form><p role="status"></p>';
- const form=container.querySelector('form'),message=container.querySelector('p[role]');
+ container.innerHTML='<p class="pair-lead">보호자에게 받은 <b>8자리 코드</b>를 입력하세요.</p><form class="pair-form"><input class="code-input" required inputmode="numeric" autocomplete="one-time-code" maxlength="9" placeholder="0000 0000" aria-label="연결 코드"><button class="primary">연결하기</button></form><p class="pair-status" role="status"></p>';
+ const form=container.querySelector('form'),message=container.querySelector('p[role]'),codeBox=form.elements[0];
+ codeBox.oninput=()=>{const d=codeBox.value.replace(/\D/g,'').slice(0,8);codeBox.value=d.length>4?d.slice(0,4)+' '+d.slice(4):d};
  form.onsubmit=async event=>{
   event.preventDefault();const code=form.elements[0].value.replace(/[\s-]/g,'');
   if(!/^\d{8}$/.test(code)){message.textContent='숫자 8자리를 확인하세요.';return}
@@ -365,12 +380,19 @@ function settings(){
  populate();if(synth)synth.onvoiceschanged=()=>{if(view==='settings')populate()};
  document.getElementById('prefs').onsubmit=e=>{e.preventDefault();state.batch=Number(batch.value);state.voice=voice.value;state.rate=Number(rate.value);persist();result('설정을 저장했어요.')};
  button('저장된 발음 듣기',()=>say('pencil'),document.getElementById('preview'));
- app.insertAdjacentHTML('beforeend','<section><h2>처음부터 다시 시작</h2><p>익힌 단어, 완료한 문법, 복습할 단어를 모두 지우고 첫 단어부터 다시 시작해요. 설정, PIN, 기기 연결, 사진 단어장은 그대로 남아요.</p><p id="resetStatus" role="status" class="note"></p><div id="resetArea"></div></section>');
+ app.insertAdjacentHTML('beforeend','<section><h2>처음부터 다시 시작</h2><p>학습 기록만 지우거나, 이 기기를 설치 직후 상태로 완전히 되돌릴 수 있어요.</p><p id="resetStatus" role="status" class="note"></p><div id="resetArea" class="row"></div></section>');
  const area=document.getElementById('resetArea'),resetStatus=document.getElementById('resetStatus');
- const ask=()=>{area.className='';area.replaceChildren();resetStatus.textContent='';button('학습 기록 초기화',confirmReset,area,'danger')};
- const confirmReset=()=>{area.className='row';area.replaceChildren();resetStatus.textContent='정말 지울까요? 되돌릴 수 없어요.';button('취소',ask,area);button('초기화',()=>{
+ const confirmStep=(text,run)=>{area.replaceChildren();resetStatus.textContent=text;button('취소',ask,area);button('초기화',run,area,'danger')};
+ const ask=()=>{area.replaceChildren();resetStatus.textContent='';
+  button('기록만 삭제',()=>confirmStep('익힌 단어, 완료한 문법, 복습할 단어를 지울까요? 설정, PIN, 기기 연결, 사진 단어장은 남아요.',()=>{
    state.done=[];state.review={};state.grammar=[];state.cursor=0;state.session=null;lesson=null;alphabetIndex=0;grammarIndex=0;persist();
-   area.className='';area.replaceChildren();resetStatus.textContent='학습 기록을 지웠어요. 홈에서 처음부터 시작하세요.';button('홈으로',()=>go('home'),area,'primary')},area,'danger')};
+   area.replaceChildren();resetStatus.textContent='학습 기록을 지웠어요.';button('홈으로',()=>go('home'),area,'primary')}),area);
+  button('전체 초기화',()=>confirmStep('학습 기록, 설정, PIN, 사진 단어장, 기기 연결까지 모두 지울까요? 되돌릴 수 없어요.',fullReset),area,'danger')};
+ const fullReset=async()=>{wiping=true;area.replaceChildren();resetStatus.textContent='초기화하고 있어요.';
+  try{if(state.cloudRole||state.cloudUid){const c=await cloud();await c.authApi.signOut(c.auth)}}catch{}
+  try{Object.keys(localStorage).forEach(k=>localStorage.removeItem(k))}catch{}
+  try{indexedDB.databases&&(await indexedDB.databases()).forEach(d=>d.name&&indexedDB.deleteDatabase(d.name))}catch{}
+  location.replace(location.pathname)};
  ask();
 }
 function shuffle(values){
@@ -438,7 +460,7 @@ function render(){
   }
   if(view==='lesson'){renderLesson();if(lesson.position<lesson.ids.length)button('저장하고 나가기',()=>go('home'),app,'exit')}
   if(view==='settings')adminScreen();
-  if(view==='pair'){app.innerHTML='<section><h2>기기 연결</h2><div id="pairArea"></div></section>';pairing(byId('pairArea'))}
+  if(view==='pair'){app.innerHTML='<section class="pair-card"><img src="./icon-192.png" alt="" class="pair-icon"><h2>기기 연결</h2><div id="pairArea"></div></section>';pairing(byId('pairArea'))}
   if(view==='alphabet')renderAlphabet();
   if(view==='words')renderWords();if(view==='personal')notebook();
   if(view==='grammar')renderGrammar();
@@ -586,5 +608,12 @@ installButton.onclick=async()=>{
  document.getElementById('instruction').textContent=location.protocol==='file:'?'홈 화면에 설치하려면 GitHub Pages에 게시한 주소를 휴대폰 브라우저에서 열어 주세요.':ios?'Safari에서 공유 버튼을 누른 뒤 ‘홈 화면에 추가’를 선택하세요.':'Chrome 또는 삼성 인터넷에서 브라우저 메뉴를 열고 ‘앱 설치’ 또는 ‘홈 화면에 추가’를 선택하세요.';
  guide.showModal();
 };
-if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('./sw.js').catch(()=>{});
+if('serviceWorker' in navigator&&location.protocol!=='file:'){
+ const hadController=!!navigator.serviceWorker.controller;let reloaded=false;
+ navigator.serviceWorker.addEventListener('controllerchange',()=>{if(hadController&&!reloaded){reloaded=true;location.reload()}});
+ navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(reg=>{
+  const check=()=>reg.update().catch(()=>{});check();
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)check()});
+ }).catch(()=>{});
+}
 </script></body></html>

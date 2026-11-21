@@ -1,5 +1,5 @@
 const prefix='english-practice:'+self.registration.scope+':';
-const cacheName=prefix+'v8-fresh';
+const cacheName=prefix+'v9-remote-reset';
 const assets=['./','./index.html','./firebase-config.js','./manifest.webmanifest','./icon-180.png','./icon-192.png','./icon-512.png'];
 // 새 버전을 받을 때 브라우저의 HTTP 캐시를 건너뛰고 서버에서 직접 받습니다.
 self.addEventListener('install',e=>e.waitUntil(caches.open(cacheName).then(c=>c.addAll(assets.map(u=>new Request(u,{cache:'reload'})))).then(()=>self.skipWaiting())));

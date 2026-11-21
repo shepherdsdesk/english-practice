@@ -20,6 +20,10 @@ service cloud.firestore {
       allow get: if request.auth != null && request.auth.uid == uid;
       allow delete: if isParentOf(resource.data.family) && resource.data.role == 'student';
     }
+    match /families/{family}/commands/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid && member().family == family;
+      allow create, update: if isParentOf(family) && request.resource.data.keys().hasOnly(['resetAt']) && request.resource.data.resetAt == request.time;
+    }
     match /families/{family}/reports/{id} {
       function belongs(role) {
         return request.auth != null && member().family == family && member().role == role;

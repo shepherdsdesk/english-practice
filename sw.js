@@ -1,5 +1,5 @@
 const prefix='english-practice:'+self.registration.scope+':';
-const cacheName=prefix+'v10-roles';
+const cacheName=prefix+'v11-wordstep';
 const assets=['./','./index.html','./firebase-config.js','./manifest.webmanifest','./icon-180.png','./icon-192.png','./icon-512.png'];
 // 새 버전을 받을 때 브라우저의 HTTP 캐시를 건너뛰고 서버에서 직접 받습니다.
 self.addEventListener('install',e=>e.waitUntil(caches.open(cacheName).then(c=>c.addAll(assets.map(u=>new Request(u,{cache:'reload'})))).then(()=>self.skipWaiting())));
@@ -8,7 +8,7 @@ self.addEventListener('fetch',e=>{
   const req=e.request;
   if(req.method!=='GET'||!req.url.startsWith(self.registration.scope))return;
   const url=new URL(req.url);
-  const fresh=req.mode==='navigate'||/\/(index\.html|firebase-config\.js)?$/.test(url.pathname);
+  const fresh=req.mode==='navigate'||/\/(index\.html|firebase-config\.js)?$/.test(url.pathname)||/\/courses\/[a-z]+\.js$/.test(url.pathname);
   if(fresh){
     // 화면과 설정은 인터넷이 되면 항상 최신 것을, 안 되면 저장본을 보여 줍니다.
     e.respondWith(fetch(req,{cache:'no-store'}).then(res=>{

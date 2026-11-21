@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "기초영어 연습장",
-  "short_name": "영어 연습장",
+  "name": "워드스텝",
+  "short_name": "워드스텝",
   "lang": "ko",
   "scope": "./",
   "start_url": "./",

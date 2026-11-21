@@ -1,10 +1,26 @@
-# 기초영어 연습장
+# 워드스텝 (WordStep)
 
-초등학생이 기초 영단어 1,000개와 필수 문법 26개를 단계별로 연습하는 웹앱입니다. 기본 학습량은 한 회차 20단어이며, 관리자 설정에서 1~100개로 조절할 수 있습니다.
+단계별로 영어 단어와 문법을 익히는 웹앱입니다. 홈 화면 맨 위 **학습 과정**에서 과정을 고르면, 과정마다 진도가 따로 저장됩니다.
+
+| 과정 | 수준 | 단어 | 문법 |
+|---|---|---|---|
+| 기초 | 초등 기초 | 1,000 | 26 |
+| 중급 | 초등 중급 | 500 | 12 |
+| 고급 | 초등 고급 | 500 | 12 |
+| 중등 | 중학교 | 500 | 12 |
+| 고등 | 고등학교 | 500 | 12 |
+| 대학 | 대학·성인 | 500 | 12 |
+| 우리 단어장 | 관리자가 직접 넣은 단어 | 최대 1,000 | — |
+
+과정을 추가하는 단어 목록은 수준별 대표 어휘를 골라 만든 것이며, 교육부 공식 어휘 목록 자체는 아닙니다. 과정 파일은 `courses/` 폴더에 있습니다.
+
+### 우리 단어장
+관리자 화면의 **우리 단어장**에 한 줄에 하나씩 `영어 - 뜻`으로 적고 **단어 추가**를 누르면, 연결된 모든 기기의 **우리 단어장** 과정에 나타납니다.
+
 
 ## 앱 주소
 
-[기초영어 연습장 열기](https://shepherdsdesk.github.io/english-practice/)
+[워드스텝 열기](https://shepherdsdesk.github.io/english-practice/)
 
 ## 갤럭시 홈 화면에 설치하기
 
@@ -22,7 +38,7 @@
 ## 운영자용 GitHub Pages 배포 방법
 
 1. GitHub에 `english-practice` 저장소를 만듭니다. 무료 개인 계정을 사용한다면 **Public**으로 만듭니다.
-2. 배포용 ZIP을 풀고 `index.html`, `manifest.webmanifest`, `sw.js`, `icon-180.png`, `icon-192.png`, `icon-512.png`와 `firebase-config.js`, 이 `README.md`를 저장소 최상위에 올립니다.
+2. 배포용 ZIP을 풀고 `index.html`, `courses/` 폴더, `manifest.webmanifest`, `sw.js`, `icon-180.png`, `icon-192.png`, `icon-512.png`와 `firebase-config.js`, 이 `README.md`를 저장소 최상위에 올립니다.
 3. **Commit changes**를 눌러 `main` 브랜치에 저장합니다.
 4. **Settings → Pages → Build and deployment**에서 **Deploy from a branch**를 선택합니다. 브랜치를 `main`, 폴더를 `/(root)`로 지정하고 **Save**를 누릅니다.
 5. 배포가 끝나면 **Visit site**에서 앱을 열어 봅니다. 위의 주소 예시를 실제 주소로 바꿔 두면 방문자가 쉽게 접속할 수 있습니다.

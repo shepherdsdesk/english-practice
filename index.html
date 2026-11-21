@@ -30,6 +30,8 @@ ol:not(:has(li)),ul:not(:has(li)){padding-left:0}
 button.danger{background:#b3261e;color:#fff;border-color:#b3261e}button.danger:hover{background:#8c1d18}
 #grammar{width:100%;min-height:46px}
 #resetStatus:empty{display:none}
+@media(max-width:640px){nav{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}nav button,nav button:last-child{min-width:0;white-space:nowrap;letter-spacing:-.02em}}
+.guardian-card #pairArea .pair-lead{display:none}.guardian-card #received{margin-top:8px}#toAdmin{width:100%;min-height:48px;margin-top:12px}
 #sync.warn{padding:12px 14px;border-radius:12px;background:#fdf3e6;color:#7a4b12;font-weight:650;line-height:1.55;word-break:keep-all}
 #tiles.row{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:8px}
 #tiles .tile{width:100%;min-width:0;margin:0;padding:10px 0}
@@ -230,7 +232,7 @@ function notebook(){
 }
 
 const stages=['보고 듣기','글자 순서 맞추기','안 보고 철자 쓰기','뜻 떠올리기'];
-const menus={home:'오늘의 학습',alphabet:'알파벳',words:'단어장',grammar:'문법',review:'오답 복습',settings:'관리자 설정'};
+const menus={home:'오늘의 학습',alphabet:'알파벳',words:'단어장',grammar:'문법',review:'오답 복습',guardian:'보호자 보고함',settings:'관리자 설정'};
 const normalized=value=>value.trim().toLowerCase().replace(/[’‘]/g,"'").replace(/\s+/g,' ');
 let wiping=false;
 function persist(){if(wiping)return;try{localStorage.setItem(key,JSON.stringify(state))}catch{}}
@@ -271,6 +273,11 @@ async function pinHash(pin,salt){
  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);
  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:new TextEncoder().encode(salt),iterations:120000,hash:'SHA-256'},key,256);
  return Array.from(new Uint8Array(bits),v=>v.toString(16).padStart(2,'0')).join('');
+}
+function guardianScreen(){
+ app.innerHTML='<section class="guardian-card"><h2>보호자 보고함</h2><p id="sync" role="status"></p><div id="pairArea"></div><div id="received"></div><button id="toAdmin" class="primary" hidden>가족 관리로 가기</button></section>';
+ byId('toAdmin').onclick=()=>go('settings');
+ showConnection(byId('sync'),byId('pairArea'),'guardian');
 }
 function adminScreen(){
  if(!adminOpen){
@@ -314,7 +321,7 @@ function pairing(container){
      tx.update(invite,{claimed:user.uid,claimedAt:c.store.serverTimestamp()});
     });
    }
-   member=await identify();if(member.role!=='student'){go('settings')}else{go('home');flushReports()}
+   member=await identify();if(member.role==='admin'){go('settings')}else if(member.role==='parent'){go('guardian')}else{go('home');flushReports()}
   }catch{message.textContent='코드를 다시 확인하세요. 이미 사용한 코드는 쓸 수 없어요. 인터넷 연결도 확인해 주세요.'}
   finally{form.elements[1].disabled=false}
  };
@@ -352,17 +359,19 @@ async function identify(){
  if(!['admin','parent','student'].includes(data.role)||!data.family||data.family.includes('/'))throw Error('member');
  familyUser={...data,uid:user.uid};syncCustomWords(c,familyUser);if(data.role==='student')watchCommands(c,familyUser);state.cloudUid=user.uid;state.cloudRole=data.role;state.cloudName=data.role==='student'?data.name:null;if(data.role==='student')state.parentDevice=false;persist();return familyUser;
 }
-async function showConnection(status,form){
- try{const c=await cloud(),u=await identify();if(!status.isConnected||!adminOpen)return;
- if(!u){status.textContent='처음 한 번 연결 코드를 입력하세요.';pairing(form);return}
+async function showConnection(status,form,scope='admin'){
+ const live=()=>status.isConnected&&(scope==='guardian'?view==='guardian':adminOpen);
+ try{const c=await cloud(),u=await identify();if(!live())return;
+ if(!u){status.textContent=scope==='guardian'?'관리자에게 받은 보호자 코드를 입력하면 아이들의 학습 보고를 볼 수 있어요.':'처음 한 번 연결 코드를 입력하세요.';pairing(form);return}
  form.hidden=true;if(byId('modeTitle'))byId('modeTitle').textContent={admin:'관리자 모드',parent:'보호자 모드',student:'학생 기기 설정'}[u.role];
- if(u.role==='student'){status.textContent=(openedAsParent?'이 폰은 '+(u.name||'학생')+' 학생 기기로 연결돼 있어서 보호자 화면을 쓸 수 없어요. 보호자 폰으로 바꾸려면 맨 아래 처음부터 다시 시작에서 전체 초기화를 누른 뒤, 관리자에게 받은 보호자 코드를 넣으세요.':'학생 기기 연결 완료. 학습을 마치면 자동으로 보고합니다.');if(openedAsParent)status.classList.add('warn');if(byId('shareBox'))byId('shareBox').hidden=true;return}
+ if(u.role==='student'){status.textContent=(openedAsParent||scope==='guardian'?'이 폰은 '+(u.name||'학생')+' 학생 기기로 연결돼 있어서 보호자 화면을 쓸 수 없어요. 보호자 폰으로 바꾸려면 관리자 메뉴 맨 아래 처음부터 다시 시작에서 전체 초기화를 누른 뒤, 관리자에게 받은 보호자 코드를 넣으세요.':'학생 기기 연결 완료. 학습을 마치면 자동으로 보고합니다.');if(openedAsParent||scope==='guardian')status.classList.add('warn');if(byId('shareBox'))byId('shareBox').hidden=true;return}
  let stopStudents=()=>{};
- if(u.role==='admin'){byId('studentsBox').hidden=false;byId('shareBox').hidden=false;wordbookAdmin(c,u);issueCode(byId('issueArea'),c,u);stopStudents=watchStudents(c,u)}else if(byId('shareBox'))byId('shareBox').hidden=true;
+ if(u.role==='admin'&&scope==='guardian'){const go2=byId('toAdmin');if(go2)go2.hidden=false}
+ else if(u.role==='admin'){byId('studentsBox').hidden=false;byId('shareBox').hidden=false;wordbookAdmin(c,u);issueCode(byId('issueArea'),c,u);stopStudents=watchStudents(c,u)}else if(byId('shareBox'))byId('shareBox').hidden=true;
  status.textContent='가족 보고함을 불러오는 중이에요.';
  const q=c.store.query(c.store.collection(c.db,'families',u.family,'reports'),c.store.orderBy('time','desc'),c.store.limit(30));
  const stopReports=c.store.onSnapshot(q,{includeMetadataChanges:true},snap=>{
- if(!status.isConnected||!adminOpen)return;
+ if(!live())return;
  const container=byId('received');container.replaceChildren();
  for(const doc of snap.docs){const r=doc.data(),card=document.createElement('article'),stamp=document.createElement('small'),body=document.createElement('p');stamp.textContent=r.time.toDate().toLocaleString('ko-KR');body.textContent=r.body;body.style.whiteSpace='pre-line';card.append(stamp,body);container.append(card)}
  status.textContent=(u.role==='admin'?'관리자':'보호자')+' · '+(snap.metadata.fromCache?'저장된 기록':'실시간 연결')+' · 최근 보고 '+snap.size+'건';
@@ -556,8 +565,9 @@ function render(){
   stopSound();
   nav.replaceChildren();
   for(const [page,label] of Object.entries(menus)){
-    const item=button(({home:'홈',alphabet:'알파벳',words:'단어장',grammar:'문법',review:'복습',settings:'관리자'})[page],()=>go(page),nav);
-    item.dataset.symbol=({home:'⌂',alphabet:'Aa',words:'▤',grammar:'≡',review:'↻',settings:'⚙'})[page];item.setAttribute('aria-label',label);
+    if(page==='guardian'&&state.cloudRole==='student')continue;
+    const item=button(({home:'홈',alphabet:'알파벳',words:'단어장',grammar:'문법',review:'복습',guardian:'보호자',settings:'관리자'})[page],()=>go(page),nav);
+    item.dataset.symbol=({home:'⌂',alphabet:'Aa',words:'▤',grammar:'≡',review:'↻',guardian:'♡',settings:'⚙'})[page];item.setAttribute('aria-label',label);
     if(view===page)item.setAttribute('aria-current','true');
   }
   if(view==='home'){
@@ -574,6 +584,7 @@ function render(){
   }
   if(view==='lesson'){renderLesson();if(lesson.position<lesson.ids.length)button('저장하고 나가기',()=>go('home'),app,'exit')}
   if(view==='settings')adminScreen();
+  if(view==='guardian')guardianScreen();
   if(view==='pair'){app.innerHTML='<section class="pair-card"><img src="./icon-192.png" alt="" class="pair-icon"><h2>기기 연결</h2><div id="pairArea"></div></section>';pairing(byId('pairArea'))}
   if(view==='alphabet')renderAlphabet();
   if(view==='words')renderWords();if(view==='personal')notebook();
@@ -707,8 +718,9 @@ function renderGrammar(){
   button('정답 보기',()=>result(`1번 ${items[1]} · 2번 ${items[3]}`),actions);
 }
 const openedAsParent=new URLSearchParams(location.search).has('parent');
-if(openedAsParent){if(state.cloudRole!=='student')state.parentDevice=true;persist();view='settings'}
-if(state.cloudRole==='admin'||state.cloudRole==='parent'||(state.parentDevice&&state.cloudRole!=='student'))view='settings';
+if(openedAsParent&&state.cloudRole!=='student'){state.parentDevice=true;persist()}
+if(state.cloudRole==='admin')view='settings';
+else if(state.cloudRole==='parent'||(state.parentDevice&&state.cloudRole!=='student')||openedAsParent)view='guardian';
 const boot=()=>{render();flushReports()};
 if(state.course==='basic'||state.course==='custom')boot();
 else loadCourse(state.course).then(()=>{applyCourse(state.course);boot()}).catch(()=>{const id=state.course;state.course='basic';state.progress[id]=Object.fromEntries(progressKeys.map(k=>[k,state[k]]));const b=state.progress.basic||{};progressKeys.forEach(k=>state[k]=b[k]??(k==='review'?{}:k==='cursor'?0:k==='session'?null:[]));lesson=state.session;persist();boot()});

@@ -21,6 +21,23 @@ body>header>#install{margin:0;align-self:center}
 .stats b{line-height:1.2;margin-bottom:5px;font-variant-numeric:tabular-nums}
 .candidate input{margin:0}
 @media(max-width:640px){body>header{column-gap:9px}body>header>#install{font-size:.75rem;padding-inline:10px}}
+</style><style id="align-fix">
+.stats b,.stats div{white-space:nowrap}.stats div small{display:block;margin-top:2px;font-size:.9em;color:#8a9a91}
+main section > button:not(.tile),main section > p > button,main section > div:not(.row):not(.stats) > button{width:100%;min-height:46px}
+label[for=topic]{display:block;margin:0 0 6px;font-weight:650}#topic{width:100%;min-height:46px;margin-bottom:10px}
+#sources{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}#sources > button{width:100%;min-height:46px;margin:0;white-space:nowrap}
+ol:not(:has(li)),ul:not(:has(li)){padding-left:0}
+button.danger{background:#b3261e;color:#fff;border-color:#b3261e}button.danger:hover{background:#8c1d18}
+#grammar{width:100%;min-height:46px}
+#resetStatus:empty{display:none}#resetStatus{font-weight:650}
+label:has(> input:not([type=checkbox]):not([type=radio])),label:has(> select){display:grid;gap:6px;font-weight:650}
+label:has(> input:not([type=checkbox]):not([type=radio])) > input,label:has(> select) > select{width:100%;min-height:46px;margin:0}
+form > button{width:100%;min-height:46px;margin-top:4px}
+form > p:empty{margin:0 0 8px}
+.row:not(#choices):not(#tiles):has(> button):not(:has(> :not(button))){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.row:not(#choices):not(#tiles):has(> button):not(:has(> :not(button))) > button{width:100%;min-height:46px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:8px;padding-right:8px}
+.row:not(#choices):not(#tiles):has(> button):not(:has(> :not(button))) > button:first-child:nth-last-child(odd){grid-column:1/-1}
+.hero .primary{min-width:0}
 </style></head>
 <body><header><img src="./icon-192.png" width="40" height="40" alt=""><h1>기초영어 연습장</h1><button id="install" type="button">홈 화면에 추가</button></header>
 <main><nav id="nav" aria-label="학습 메뉴"></nav><div id="app"></div></main>
@@ -286,6 +303,13 @@ function settings(){
  populate();if(synth)synth.onvoiceschanged=()=>{if(view==='settings')populate()};
  document.getElementById('prefs').onsubmit=e=>{e.preventDefault();state.batch=Number(batch.value);state.voice=voice.value;state.rate=Number(rate.value);persist();result('설정을 저장했어요.')};
  button('저장된 발음 듣기',()=>say('pencil'),document.getElementById('preview'));
+ app.insertAdjacentHTML('beforeend','<section><h2>처음부터 다시 시작</h2><p>익힌 단어, 완료한 문법, 복습할 단어를 모두 지우고 첫 단어부터 다시 시작해요. 설정, PIN, 기기 연결, 사진 단어장은 그대로 남아요.</p><p id="resetStatus" role="status" class="note"></p><div id="resetArea"></div></section>');
+ const area=document.getElementById('resetArea'),resetStatus=document.getElementById('resetStatus');
+ const ask=()=>{area.className='';area.replaceChildren();resetStatus.textContent='';button('학습 기록 초기화',confirmReset,area,'danger')};
+ const confirmReset=()=>{area.className='row';area.replaceChildren();resetStatus.textContent='정말 지울까요? 되돌릴 수 없어요.';button('취소',ask,area);button('초기화',()=>{
+   state.done=[];state.review={};state.grammar=[];state.cursor=0;state.session=null;lesson=null;alphabetIndex=0;grammarIndex=0;persist();
+   area.className='';area.replaceChildren();resetStatus.textContent='학습 기록을 지웠어요. 홈에서 처음부터 시작하세요.';button('홈으로',()=>go('home'),area,'primary')},area,'danger')};
+ ask();
 }
 function shuffle(values){
   const copy=[...values];
@@ -342,11 +366,11 @@ function render(){
   if(view==='home'){
     const ids=index.slice(0,1000).filter(w=>!state.done.includes(w.id)).slice(0,batchSize()).map(w=>w.id);
     const active=lesson&&lesson.position<lesson.ids.length;
-    app.innerHTML='<section class="hero"><small>단어 학습</small><h2>'+ (active?'이어서 공부해요':'오늘의 '+ids.length+'단어')+'</h2><p>'+(active?lesson.position+' / '+lesson.ids.length+'단어 완료':(ids.length?index[ids[0]].name+'부터 시작해요.':'모든 단어를 익혔어요.'))+'</p><div id="actions" class="row"></div></section><section><h2>나의 진도</h2><progress max="1000" value="'+state.done.filter(id=>id<1000).length+'"></progress><div class="stats"><div><b>'+state.done.filter(id=>id<1000).length+'</b>익힌 단어 / 1,000</div><div><b>'+state.grammar.length+'</b>완료한 문법 / 26</div><div><b>'+Object.keys(state.review).length+'</b>복습할 단어</div></div></section>';
+    app.innerHTML='<section class="hero"><small>단어 학습</small><h2>'+ (active?'이어서 공부해요':'오늘의 '+ids.length+'단어')+'</h2><p>'+(active?lesson.position+' / '+lesson.ids.length+'단어 완료':(ids.length?index[ids[0]].name+'부터 시작해요.':'모든 단어를 익혔어요.'))+'</p><div id="actions" class="row"></div></section><section><h2>나의 진도</h2><progress max="1000" value="'+state.done.filter(id=>id<1000).length+'"></progress><div class="stats"><div><b>'+state.done.filter(id=>id<1000).length+'</b>익힌 단어<small>전체 1,000개</small></div><div><b>'+state.grammar.length+'</b>완료한 문법<small>전체 26개</small></div><div><b>'+Object.keys(state.review).length+'</b>복습할 단어<small>틀린 단어</small></div></div></section>';
     const actions=document.getElementById('actions');
-    if(!state.cloudRole)button('이름·코드로 연결',()=>go('pair'),actions);
     if(active)button('이어서 학습',()=>go('lesson'),actions,'primary');
     else if(ids.length)button('학습 시작',()=>start(ids),actions,'primary');
+    if(!state.cloudRole)button('기기 연결',()=>go('pair'),actions);
     button('사진 단어장',()=>go('personal'),actions);
     if(Object.keys(state.review).length)button('오답 복습',()=>go('review'),actions);
   }

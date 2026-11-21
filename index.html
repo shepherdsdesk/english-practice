@@ -59,7 +59,7 @@ button.danger{background:#b3261e;color:#fff;border-color:#b3261e}button.danger:h
 .gl-compare{padding:14px 16px;border-radius:14px;background:#f3f8f2;border-left:4px solid #8fc4a4}.gl-compare b{color:#174d40}.gl-compare p{margin:6px 0 0;line-height:1.7;word-break:keep-all}
 .gl-table table{width:100%;border-collapse:separate;border-spacing:0;border:1.5px solid #d8e4dc;border-radius:14px;overflow:hidden}
 .gl-table th,.gl-table td{padding:11px 12px;text-align:left;vertical-align:top;border-top:1px solid #e3ebe4;font-size:.95rem;line-height:1.5}
-.gl-table tr:first-child th,.gl-table tr:first-child td{border-top:0}.gl-table th{width:38%;background:#f6faf5;color:#174d40;white-space:nowrap}
+.gl-table tr:first-child th,.gl-table tr:first-child td{border-top:0}.gl-table th{width:38%;background:#f6faf5;color:#174d40;word-break:keep-all}
 .gl-ex,.gl-q{position:relative;padding:16px;border:1.5px solid #dfe8e1;border-radius:16px;background:#fff}
 .gl-en{font-size:1.3rem;font-weight:700;color:#173c35;line-height:1.45;margin:0 0 4px;word-break:keep-all}
 .gl-en mark{background:#fde9a8;color:inherit;border-radius:4px;padding:0 3px}
@@ -848,7 +848,7 @@ function renderGrammarSteps(title,L,select){
  if(step===2){
   L.choose.forEach((x,qi)=>{const c=card('gl-q','<p class="gl-num">'+(qi+1)+'</p><p class="gl-en" lang="en">'+gEsc(x.q)+'</p>'+(x.ko?'<p class="gl-ko">'+gEsc(x.ko)+'</p>':'')+'<div class="gl-opts"></div><p class="gl-why"></p>');
    const opts=c.querySelector('.gl-opts'),why=c.querySelector('.gl-why');
-   if(x.options.some(o=>o.length>(x.options.length>2?6:12)))opts.classList.add('long');
+   const ow=o=>[...o].reduce((n,ch)=>n+(ch.charCodeAt(0)>255?2:1),0);if(x.options.some(o=>ow(o)>(x.options.length>2?6:12)))opts.classList.add('long');
    x.options.forEach(o=>{const b=button(o,()=>{
      if(o===x.answer){opts.querySelectorAll('button').forEach(z=>z.disabled=true);b.classList.add('right');why.className='gl-why ok';why.textContent='정답! '+x.why;gs.done['c'+qi]=true}
      else{b.classList.add('wrong');b.disabled=true;why.className='gl-why no';why.textContent='아쉬워요. '+(L.wrongs?.[o]?L.wrongs[o]+' ':'')+'다시 골라 봐요.'}

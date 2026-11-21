@@ -4,11 +4,7 @@
 
 ## 앱 주소
 
-저장소 이름이 `english-practice`일 때 기본 접속 주소는 다음과 같습니다. `YOUR-USERNAME` 자리에 저장소를 소유한 GitHub 계정명을 넣으세요.
-
-`https://YOUR-USERNAME.github.io/english-practice/`
-
-배포 후 저장소의 **Settings → Pages → Visit site**를 누르면 실제 앱이 열립니다. 그때 브라우저 주소창의 링크를 복사해 휴대폰으로 보내세요.
+[기초영어 연습장 열기](https://shepherdsdesk.github.io/english-practice/)
 
 ## 갤럭시 홈 화면에 설치하기
 
@@ -42,7 +38,7 @@
 1. Firebase 콘솔에서 프로젝트를 만들고 웹 앱을 등록합니다. 프로젝트 설정에서 웹 앱의 apiKey, authDomain, projectId, appId를 firebase-config.js에 입력한 후 GitHub Pages에 앱 파일과 함께 올립니다. 이 파일에는 웹 앱의 공개 설정만 넣습니다.
 2. Authentication → Sign-in method에서 이메일/비밀번호를 켜고, Users에서 보호자 계정 하나와 학생 계정 하나를 직접 생성합니다. 각각의 UID를 복사합니다. Authentication 설정의 승인된 도메인에 GitHub Pages 호스트(예: 계정명.github.io)를 등록합니다.
 3. Firestore Database에서 기본 데이터베이스를 프로덕션 모드로 만들고 Rules 탭에 동봉한 firestore.rules 전체를 붙여 넣은 뒤 게시합니다.
-4. Firestore 데이터 탭에서 members 컬렉션을 만듭니다. 문서 ID를 보호자 UID로 지정하고 문자열 필드 family에 habin-home, role에 parent를 입력합니다. 학생 UID 문서에도 같은 family 값과 role 값 student를 넣습니다. 이 권한 문서는 보호자가 콘솔에서만 관리합니다.
+4. Firestore 데이터 탭에서 members 컬렉션을 만듭니다. 문서 ID를 보호자 UID로 지정하고 문자열 필드 family에 family-home, role에 parent를 입력합니다. 학생 UID 문서에도 같은 family 값과 role 값 student를 넣습니다. 이 권한 문서는 보호자가 콘솔에서만 관리합니다.
 5. 각 기기에서 앱의 관리자 메뉴를 열어 해당 기기의 PIN을 정합니다. 자녀 휴대폰에는 학생 계정, 부모 휴대폰에는 보호자 계정으로 한 번 연결합니다. 학생 휴대폰은 학생 모드로 돌아갑니다. 부모 기기는 다음 실행부터 관리자 PIN 화면으로 열립니다.
 6. 학생 기기에서 1단어 회차를 완료하고 부모 기기의 열린 보고함에 결과가 뜨는지 확인합니다. 시험 후 분량을 원래 값으로 되돌립니다.
 

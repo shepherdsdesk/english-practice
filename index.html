@@ -30,6 +30,7 @@ ol:not(:has(li)),ul:not(:has(li)){padding-left:0}
 button.danger{background:#b3261e;color:#fff;border-color:#b3261e}button.danger:hover{background:#8c1d18}
 #grammar{width:100%;min-height:46px}
 #resetStatus:empty{display:none}
+#sync.warn{padding:12px 14px;border-radius:12px;background:#fdf3e6;color:#7a4b12;font-weight:650;line-height:1.55;word-break:keep-all}
 #tiles.row{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:8px}
 #tiles .tile{width:100%;min-width:0;margin:0;padding:10px 0}
 button.exit{display:block;width:100%;min-height:48px;margin:12px 0 0}
@@ -355,7 +356,7 @@ async function showConnection(status,form){
  try{const c=await cloud(),u=await identify();if(!status.isConnected||!adminOpen)return;
  if(!u){status.textContent='처음 한 번 연결 코드를 입력하세요.';pairing(form);return}
  form.hidden=true;if(byId('modeTitle'))byId('modeTitle').textContent={admin:'관리자 모드',parent:'보호자 모드',student:'학생 기기 설정'}[u.role];
- if(u.role==='student'){status.textContent='학생 기기 연결 완료. 학습을 마치면 자동으로 보고합니다.';if(byId('shareBox'))byId('shareBox').hidden=true;return}
+ if(u.role==='student'){status.textContent=(openedAsParent?'이 폰은 '+(u.name||'학생')+' 학생 기기로 연결돼 있어서 보호자 화면을 쓸 수 없어요. 보호자 폰으로 바꾸려면 맨 아래 처음부터 다시 시작에서 전체 초기화를 누른 뒤, 관리자에게 받은 보호자 코드를 넣으세요.':'학생 기기 연결 완료. 학습을 마치면 자동으로 보고합니다.');if(openedAsParent)status.classList.add('warn');if(byId('shareBox'))byId('shareBox').hidden=true;return}
  let stopStudents=()=>{};
  if(u.role==='admin'){byId('studentsBox').hidden=false;byId('shareBox').hidden=false;wordbookAdmin(c,u);issueCode(byId('issueArea'),c,u);stopStudents=watchStudents(c,u)}else if(byId('shareBox'))byId('shareBox').hidden=true;
  status.textContent='가족 보고함을 불러오는 중이에요.';
@@ -705,7 +706,8 @@ function renderGrammar(){
   if(grammarIndex+1<grammar.length)button('다음 문법',()=>{grammarIndex++;render()},actions);
   button('정답 보기',()=>result(`1번 ${items[1]} · 2번 ${items[3]}`),actions);
 }
-if(new URLSearchParams(location.search).has('parent')){state.parentDevice=true;persist()}
+const openedAsParent=new URLSearchParams(location.search).has('parent');
+if(openedAsParent){if(state.cloudRole!=='student')state.parentDevice=true;persist();view='settings'}
 if(state.cloudRole==='admin'||state.cloudRole==='parent'||(state.parentDevice&&state.cloudRole!=='student'))view='settings';
 const boot=()=>{render();flushReports()};
 if(state.course==='basic'||state.course==='custom')boot();

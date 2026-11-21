@@ -181,16 +181,43 @@ function adminScreen(){
  settings();
  app.insertAdjacentHTML('afterbegin','<section><h2>관리자 모드</h2><button id="student">학생 모드로 돌아가기</button></section>');
  byId('student').onclick=()=>go('home');
- app.insertAdjacentHTML('afterbegin','<section><h2>가족 학습 보고함</h2><p id="sync" role="status"></p><div id="received"></div><form id="cloudLogin"><label>가족 계정 이메일 <input type="email" autocomplete="username" required></label><p><label>비밀번호 <input type="password" autocomplete="current-password" required></label></p><button>계정 연결</button></form><button hidden id="disconnect">계정 연결 해제</button></section>');
+ app.insertAdjacentHTML('afterbegin','<section><h2>가족 학습 보고함</h2><p id="sync" role="status"></p><div id="received"></div><div id="pairArea"></div><div id="issueArea"></div></section>');
  app.insertAdjacentHTML('beforeend','<section><h3>이 기기의 완료 기록</h3><ul id="history"></ul></section>');
- const form=byId('cloudLogin'),status=byId('sync');
- form.onsubmit=async e=>{
-  e.preventDefault();status.textContent='계정을 확인하고 있어요.';
-  try{const c=await cloud();await c.authApi.signInWithEmailAndPassword(c.auth,form.elements[0].value,form.elements[1].value);await identify();if(adminOpen)render();flushReports()}
-  catch{status.textContent='연결 실패. Firebase 설정, 이메일, 비밀번호와 members 등록을 확인하세요.'}
+ showConnection(byId('sync'),byId('pairArea'));reportHistory();
+}
+function pairing(container){
+ container.innerHTML='<form><label>이름 <input required maxlength="32" autocomplete="off" placeholder="배정받은 이름"></label><p><label>연결 코드 <input required inputmode="numeric" autocomplete="off" maxlength="24" placeholder="숫자 16자리"></label></p><button class="primary">이 기기 연결</button></form><p role="status"></p>';
+ const form=container.querySelector('form'),message=container.querySelector('p[role]');
+ form.onsubmit=async event=>{
+  event.preventDefault();const name=form.elements[0].value.trim(),code=form.elements[1].value.replace(/[\s-]/g,'');
+  if(!name||!/^\d{16}$/.test(code)){message.textContent='이름과 숫자 16자리를 확인하세요.';return}
+  form.elements[2].disabled=true;message.textContent='연결을 확인하고 있어요.';
+  try{
+   const c=await cloud(),user=c.auth.currentUser||(await c.authApi.signInAnonymously(c.auth)).user;
+   const ref=c.store.doc(c.db,'members',user.uid);
+   let member=(await c.store.getDoc(ref)).data();
+   if(!member){
+    const invite=c.store.doc(c.db,'invites',code);
+    await c.store.runTransaction(c.db,async tx=>{
+     const v=(await tx.get(invite)).data();if(!v||v.claimed||v.name!==name)throw Error('invalid');
+     tx.set(ref,{name,family:v.family,role:v.role,code});
+     tx.update(invite,{claimed:user.uid});
+    });
+   }
+   member=await identify();if(member.role==='parent'){go('settings')}else{go('home');flushReports()}
+  }catch{message.textContent='이름과 코드가 일치하는지, 이미 사용한 코드인지 확인하세요. 인터넷에 연결한 뒤 다시 시도하세요.'}
+  finally{form.elements[2].disabled=false}
  };
- byId('disconnect').onclick=async()=>{const c=await cloud();await c.authApi.signOut(c.auth);familyUser=null;state.cloudRole='';persist();render()};
- showConnection(status,form);reportHistory();
+}
+function issueCode(container,c,u){
+ container.innerHTML='<h3>학생 코드 배정</h3><form><label>학생 이름 <input required maxlength="32" placeholder="학습에 사용할 이름"></label> <button>일회용 코드 발급</button></form><p role="status"></p>';
+ const form=container.querySelector('form'),out=container.querySelector('p');
+ form.onsubmit=async e=>{e.preventDefault();const name=form.elements[0].value.trim();if(!name)return;
+ const code=Array.from(crypto.getRandomValues(new Uint16Array(16)),x=>x%10).join('');
+ form.elements[1].disabled=true;
+ try{await c.store.setDoc(c.store.doc(c.db,'invites',code),{name,role:'student',family:u.family});
+ out.textContent=name+' · '+code.match(/.{4}/g).join(' ')+' · 학생 기기에 입력하세요.'}
+ catch{out.textContent='발급하지 못했어요. 연결을 확인하고 다시 시도하세요.'}finally{form.elements[1].disabled=false}};
 }
 let firebaseReady, familyUser, unsubscribe;
 async function cloud(){
@@ -209,15 +236,16 @@ async function identify(){
  const c=await cloud(),user=c.auth.currentUser;familyUser=null;
  if(!user)return null;
  const data=(await c.store.getDoc(c.store.doc(c.db,'members',user.uid))).data();
- if(!data||!['parent','student'].includes(data.role)||!data.family||data.family.includes('/'))throw Error('member');
+ if(!data)return null;
+ if(!['parent','student'].includes(data.role)||!data.family||data.family.includes('/'))throw Error('member');
  familyUser={...data,uid:user.uid};state.cloudUid=user.uid;state.cloudRole=data.role;persist();return familyUser;
 }
 async function showConnection(status,form){
  try{const c=await cloud(),u=await identify();if(!status.isConnected||!adminOpen)return;
- if(!u){status.textContent='이 기기에 사용할 보호자 또는 학생 계정으로 로그인하세요.';return}
- form.hidden=true;byId('disconnect').hidden=false;
+ if(!u){status.textContent='처음 한 번 이름과 코드를 입력하세요.';pairing(form);return}
+ form.hidden=true;
  if(u.role==='student'){status.textContent='학생 기기 연결 완료. 학습을 마치면 자동으로 보고합니다.';return}
- status.textContent='가족 보고함을 불러오는 중이에요.';
+ issueCode(byId('issueArea'),c,u);status.textContent='가족 보고함을 불러오는 중이에요.';
  const q=c.store.query(c.store.collection(c.db,'families',u.family,'reports'),c.store.orderBy('time','desc'),c.store.limit(30));
  unsubscribe=c.store.onSnapshot(q,{includeMetadataChanges:true},snap=>{
  if(!status.isConnected||!adminOpen)return;
@@ -241,7 +269,7 @@ async function flushReports(){
  try{for(const r of state.reports.filter(r=>r.status==='전송 대기')){
  const c=await cloud(),u=familyUser||await identify();if(u?.role!=='student')return;
  if(!r.owner){r.owner=u.uid;persist()}if(r.owner!==u.uid)continue;
- await c.store.setDoc(c.store.doc(c.db,'families',u.family,'reports',r.id),{uid:u.uid,time:c.store.Timestamp.fromDate(new Date(r.time)),body:r.body});
+ await c.store.setDoc(c.store.doc(c.db,'families',u.family,'reports',r.id),{uid:u.uid,time:c.store.Timestamp.fromDate(new Date(r.time)),body:(u.name?u.name+" · ":"")+r.body});
  r.status='전송 완료';persist();reportHistory();
  }}catch{if(byId('reportNote'))byId('reportNote').textContent='발송 확인을 받지 못했어요. 연결 설정을 확인하고 다시 보내세요.'}
  finally{sendingReports=false}
@@ -316,6 +344,7 @@ function render(){
     const active=lesson&&lesson.position<lesson.ids.length;
     app.innerHTML='<section class="hero"><small>단어 학습</small><h2>'+ (active?'이어서 공부해요':'오늘의 '+ids.length+'단어')+'</h2><p>'+(active?lesson.position+' / '+lesson.ids.length+'단어 완료':(ids.length?index[ids[0]].name+'부터 시작해요.':'모든 단어를 익혔어요.'))+'</p><div id="actions" class="row"></div></section><section><h2>나의 진도</h2><progress max="1000" value="'+state.done.filter(id=>id<1000).length+'"></progress><div class="stats"><div><b>'+state.done.filter(id=>id<1000).length+'</b>익힌 단어 / 1,000</div><div><b>'+state.grammar.length+'</b>완료한 문법 / 26</div><div><b>'+Object.keys(state.review).length+'</b>복습할 단어</div></div></section>';
     const actions=document.getElementById('actions');
+    if(!state.cloudRole)button('이름·코드로 연결',()=>go('pair'),actions);
     if(active)button('이어서 학습',()=>go('lesson'),actions,'primary');
     else if(ids.length)button('학습 시작',()=>start(ids),actions,'primary');
     button('사진 단어장',()=>go('personal'),actions);
@@ -323,6 +352,7 @@ function render(){
   }
   if(view==='lesson'){renderLesson();button('저장하고 나가기',()=>go('home'),app,'exit')}
   if(view==='settings')adminScreen();
+  if(view==='pair'){app.innerHTML='<section><h2>이름과 코드로 연결</h2><div id="pairArea"></div></section>';pairing(byId('pairArea'))}
   if(view==='alphabet')renderAlphabet();
   if(view==='words')renderWords();if(view==='personal')notebook();
   if(view==='grammar')renderGrammar();

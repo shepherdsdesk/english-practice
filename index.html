@@ -30,6 +30,26 @@ ol:not(:has(li)),ul:not(:has(li)){padding-left:0}
 button.danger{background:#b3261e;color:#fff;border-color:#b3261e}button.danger:hover{background:#8c1d18}
 #grammar{width:100%;min-height:46px}
 #resetStatus:empty{display:none}
+.talk-list{display:grid;gap:10px}
+.talk-card{display:grid;grid-template-columns:52px minmax(0,1fr) 40px;align-items:center;gap:12px;width:100%;margin:0;padding:14px;text-align:left;border-radius:16px;min-height:72px}
+.talk-lv{display:grid;place-items:center;height:32px;border-radius:99px;background:#e8e6f6;color:#4b3f99;font-size:.8rem;font-weight:800;white-space:nowrap}
+.talk-tx{display:grid;gap:3px;min-width:0}.talk-tx b{font-size:1.05rem;color:#173c35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.talk-tx small{color:#5b6d63;line-height:1.45;word-break:keep-all}
+.talk-st{font-size:.78rem;font-weight:800;color:#174d40;text-align:right;white-space:nowrap}.talk-card.done{background:#f6faf5}
+.talk-head small{display:block;color:#5b6d63;font-weight:700;font-size:.82rem;margin-bottom:4px}.talk-head h2{margin-bottom:10px}
+.talk-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px}.talk-tools button{margin:0;min-height:42px}
+.talk-chat{display:flex;flex-direction:column;gap:10px}
+.bub{max-width:86%;padding:12px 14px;border-radius:18px;cursor:pointer}.bub p{margin:0}
+.bub.p{align-self:flex-start;background:#f1f5f2;border-bottom-left-radius:6px}.bub.me{align-self:flex-end;background:var(--accent);border-bottom-right-radius:6px}
+.bub .en{font-size:1.12rem;font-weight:700;color:#173c35;line-height:1.45;word-break:keep-all}.bub .ko{font-size:.88rem;color:#5b6d63;margin-top:4px;line-height:1.5;word-break:keep-all}
+.bub.me .en{color:#fff}.bub.me .ko{color:#d6efdf}.bub .heard{display:block;margin-top:6px;font-size:.78rem;color:#d6efdf}
+.talk-tip{align-self:stretch;padding:12px 14px;border-radius:14px;background:#fffaf2;border:1.5px dashed #e4c9a5}.talk-tip b{color:#7a4b12;font-size:.9rem}.talk-tip p{margin:6px 0 0;font-weight:700}.talk-tip .no{color:#9a3b2f;text-decoration:line-through}.talk-tip .ok{color:#174d40}.talk-tip small{display:block;margin-top:6px;color:#5b6d63;line-height:1.5;word-break:keep-all}
+.talk-reply h3{margin:0 0 10px}#replies{display:grid;gap:8px}
+.talk-choice{display:grid;gap:3px;width:100%;margin:0;padding:12px 14px;text-align:left;min-height:56px;border-radius:14px}.talk-choice b{font-size:1.05rem;color:#173c35;line-height:1.4}.talk-choice small{color:#5b6d63;line-height:1.4}
+.talk-choice.tried{opacity:.45;text-decoration:line-through}
+.talk-mic{width:100%;min-height:50px;margin:10px 0 0;font-weight:700}
+.talk-end{padding:18px;border-radius:16px;background:var(--accent);color:#fff;margin-bottom:14px}.talk-end small{color:#c9ead2;font-weight:700}.talk-end h2{color:#fff;margin:6px 0;white-space:nowrap}.talk-end p{color:#fff;margin:0;line-height:1.55;word-break:keep-all}.talk-end .talk-score{margin-top:8px;color:#c9ead2;font-size:.9rem}
+.talk-key{display:grid;grid-template-columns:minmax(0,1fr) 64px;align-items:center;gap:10px;padding:10px 0;border-top:1px solid #e3ebe4}.talk-key span{display:grid;gap:2px}.talk-key small{color:#5b6d63}.talk-key button{margin:0;min-height:38px;width:64px}
+#endNav{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}#endNav button{margin:0;min-height:50px}
 .gl-steps{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;list-style:none;margin:0 0 10px;padding:0}
 .gl-steps li{height:6px;border-radius:99px;background:#e3ebe4}.gl-steps li span{display:none}
 .gl-steps li.done{background:#8fc4a4}.gl-steps li.now{background:var(--accent)}
@@ -262,12 +282,12 @@ function notebook(){
 }
 
 const stages=['보고 듣기','글자 순서 맞추기','안 보고 철자 쓰기','뜻 떠올리기'];
-const menus={home:'오늘의 학습',alphabet:'알파벳',words:'단어장',grammar:'문법',review:'오답 복습',guardian:'보호자 보고함',settings:'관리자 설정'};
+const menus={home:'오늘의 학습',alphabet:'알파벳',words:'단어장',grammar:'문법',review:'오답 복습',talk:'영어 대화',guardian:'보호자 보고함',settings:'관리자 설정'};
 const normalized=value=>value.trim().toLowerCase().replace(/[’‘]/g,"'").replace(/\s+/g,' ');
 let wiping=false;
 function persist(){if(wiping)return;try{localStorage.setItem(key,JSON.stringify(state))}catch{}}
 function go(page){if(page!=="settings")adminOpen=false;view=page;render()}
-function result(message){document.getElementById('feedback').textContent=message}
+function result(message){const f=document.getElementById('feedback')||document.getElementById('talkNote')||document.getElementById('glNote');if(f)f.textContent=message}
 let player, soundId=0;
 const synth=window.speechSynthesis;
 function voices(){
@@ -303,6 +323,78 @@ async function pinHash(pin,salt){
  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);
  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:new TextEncoder().encode(salt),iterations:120000,hash:'SHA-256'},key,256);
  return Array.from(new Uint8Array(bits),v=>v.toString(16).padStart(2,'0')).join('');
+}
+/* ── 영어 대화 ── 지금은 대본이 대답하고, 나중에 talkPartner만 AI로 바꾸면 됩니다. */
+let dialogLoad=null;
+function loadDialogs(){if(window.WORDSTEP_DIALOGS)return Promise.resolve(true);return dialogLoad??=new Promise(ok=>{const el=document.createElement('script');el.src='./courses/dialogs.js';el.onload=()=>ok(!!window.WORDSTEP_DIALOGS);el.onerror=()=>{dialogLoad=null;ok(false)};document.head.append(el)})}
+const talkPartner={
+ first(sc){return {en:sc.turns[0].p,ko:sc.turns[0].k}},
+ replies(sc,i){return sc.turns[i].r},
+ after(sc,i){const t=sc.turns[i],n=sc.turns[i+1];return {reaction:t.then||null,next:n?{en:n.p,ko:n.k}:null}}
+};
+const LEVEL_NAMES={basic:'기초',mid:'중급',adv:'고급',middle:'중등',high:'고등',univ:'대학'};
+let talk=null;
+function renderTalkList(){
+ state.talkDone??=[];
+ if(!window.WORDSTEP_DIALOGS){app.innerHTML='<section><h2>영어 대화</h2><p id="talkLoad">대화를 불러오고 있어요.</p></section>';loadDialogs().then(ok=>{if(view!=='talk')return;if(ok)render();else byId('talkLoad').textContent='대화를 불러오지 못했어요. 인터넷 연결을 확인해 주세요.'});return}
+ const order=Object.keys(LEVEL_NAMES),cur=LEVEL_NAMES[state.course]?state.course:'basic';
+ const sorted=[...WORDSTEP_DIALOGS].sort((a,b)=>(b.level===cur)-(a.level===cur)||order.indexOf(a.level)-order.indexOf(b.level));
+ app.innerHTML='<section><h2>영어 대화</h2><p>상황을 골라 영어로 대화해요. 대답을 고르거나 직접 말해 보세요. 지금 과정('+courseInfo().name+')에 맞는 대화가 먼저 나와요.</p></section><section class="talk-list" id="talkList"></section>';
+ const list=byId('talkList');
+ sorted.forEach(sc=>{const b=document.createElement('button');b.type='button';b.className='talk-card';b.innerHTML='<span class="talk-lv"></span><span class="talk-tx"><b></b><small></small></span><span class="talk-st"></span>';
+  b.querySelector('.talk-lv').textContent=LEVEL_NAMES[sc.level];b.querySelector('b').textContent=sc.title;b.querySelector('small').textContent=sc.desc;
+  const done=state.talkDone.includes(sc.id);b.querySelector('.talk-st').textContent=done?'완료':'';if(done)b.classList.add('done');
+  b.onclick=()=>{talk={id:sc.id,i:0,log:[],good:0,miss:false,hideKo:state.talkHideKo||false,order:{},done:false};go('talkrun')};list.append(b)});
+}
+function talkScore(heard,target){const words=t=>t.toLowerCase().replace(/[^a-z0-9' ]/g,' ').split(/\s+/).filter(Boolean);const h=words(heard),g=words(target);if(!g.length)return 0;let hit=0;const pool=[...h];g.forEach(w=>{const k=pool.indexOf(w);if(k>=0){hit++;pool.splice(k,1)}});return hit/Math.max(g.length,h.length)}
+function renderTalk(){
+ const sc=window.WORDSTEP_DIALOGS?.find(d=>d.id===talk?.id);if(!sc){view='talk';render();return}
+ if(!talk.log.length){const f=talkPartner.first(sc);talk.log.push({who:'p',en:f.en,ko:f.ko});setTimeout(()=>say(f.en),250)}
+ app.innerHTML='<section class="talk-head"><small></small><h2></h2><div class="talk-tools row"></div></section><section class="talk-chat" id="chat"></section><section class="talk-reply" id="replyBox"></section>';
+ app.querySelector('.talk-head small').textContent=LEVEL_NAMES[sc.level]+' · '+sc.role+' · 상대: '+sc.partner;app.querySelector('.talk-head h2').textContent=sc.title;
+ const tools=app.querySelector('.talk-tools');
+ button(talk.hideKo?'해석 보기':'해석 숨기기',()=>{talk.hideKo=!talk.hideKo;state.talkHideKo=talk.hideKo;persist();render()},tools);
+ button('다른 대화',()=>go('talk'),tools);
+ const chat=byId('chat');
+ talk.log.forEach(m=>{const d=document.createElement('div');
+  if(m.who==='tip'){d.className='talk-tip';d.innerHTML='<b>이렇게 말하면 더 자연스러워요</b><p class="no" lang="en"></p><p class="ok" lang="en"></p><small></small>';d.querySelector('.no').textContent='✗ '+m.en;d.querySelector('.ok').textContent='○ '+m.better;d.querySelector('small').textContent=m.fix;chat.append(d);return}
+  d.className='bub '+m.who;d.innerHTML='<p class="en" lang="en"></p>'+(m.ko&&!talk.hideKo?'<p class="ko"></p>':'');d.querySelector('.en').textContent=m.en;if(m.ko&&!talk.hideKo)d.querySelector('.ko').textContent=m.ko;
+  if(m.heard){const h=document.createElement('small');h.className='heard';h.textContent='🎤 들린 말: '+m.heard;d.append(h)}
+  d.onclick=()=>say(m.en);d.title='눌러서 듣기';chat.append(d)});
+ const box=byId('replyBox');
+ if(talk.done){
+  const all=talk.good===sc.turns.length,p=pick(all?praise.perfect:praise.good);state.talkDone??=[];
+  box.innerHTML='<div class="talk-end"><small>대화 완료</small><h2></h2><p></p><p class="talk-score"></p></div><h3>오늘의 표현</h3><div id="keys"></div><div class="row" id="endNav"></div>';
+  box.querySelector('h2').textContent=p[0];box.querySelector('.talk-end p').textContent=(callName()?callName()+', ':'')+p[1];box.querySelector('.talk-score').textContent='자연스러운 대답 '+talk.good+' / '+sc.turns.length;
+  sc.keys.forEach(([en,ko])=>{const k=document.createElement('div');k.className='talk-key';k.innerHTML='<span><b lang="en"></b><small></small></span>';k.querySelector('b').textContent=en;k.querySelector('small').textContent=ko;button('듣기',()=>say(en),k);byId('keys').append(k)});
+  button('다시 하기',()=>{talk={...talk,i:0,log:[],good:0,miss:false,order:{},tried:{},done:false};render()},byId('endNav'));button('다른 대화',()=>go('talk'),byId('endNav'),'primary');
+  box.scrollIntoView({block:'start'});return;
+ }
+ const replies=talkPartner.replies(sc,talk.i);talk.order[talk.i]??=shuffle(replies.map((_,i)=>i));talk.tried??={};
+ box.innerHTML='<h3>내 대답 고르기</h3><div id="replies"></div><p id="talkNote" class="gl-note" role="status"></p>';
+ const handle=(r,heard)=>{
+  if(!r.ok){talk.miss=true;(talk.tried[talk.i]??=[]).push(r.e);talk.log.push({who:'tip',en:r.e,better:r.better,fix:r.fix});render();byId('replyBox').scrollIntoView({block:'end'});return}
+  if(!talk.miss)talk.good++;talk.miss=false;talk.log.push({who:'me',en:r.e,ko:r.k,heard});
+  const a=talkPartner.after(sc,talk.i);const spoken=[];
+  if(a.reaction){talk.log.push({who:'p',en:a.reaction,ko:''});spoken.push(a.reaction)}
+  if(a.next){talk.i++;talk.log.push({who:'p',en:a.next.en,ko:a.next.ko});spoken.push(a.next.en)}
+  else{talk.done=true;if(!state.talkDone.includes(sc.id))state.talkDone.push(sc.id);persist();recordReport('영어 대화 완료 · '+sc.title+'\n자연스러운 대답 '+talk.good+'/'+sc.turns.length)}
+  if(spoken.length)setTimeout(()=>say(spoken.join(' ')),200);
+  render();if(!talk.done)byId('replyBox').scrollIntoView({block:'end'});
+ };
+ talk.order[talk.i].forEach(idx=>{const r=replies[idx];const b=document.createElement('button');b.type='button';b.className='talk-choice';b.innerHTML='<b lang="en"></b>'+(r.k&&!talk.hideKo?'<small></small>':'');b.querySelector('b').textContent=r.e;if(r.k&&!talk.hideKo)b.querySelector('small').textContent=r.k;
+  if((talk.tried[talk.i]||[]).includes(r.e)){b.disabled=true;b.classList.add('tried')}
+  b.onclick=()=>handle(r);byId('replies').append(b)});
+ const Rec=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(Rec){const mic=button('🎤 말해서 대답하기',()=>{
+   const rec=new Rec();rec.lang='en-US';rec.interimResults=false;rec.maxAlternatives=3;const note=byId('talkNote');note.className='gl-note';note.textContent='듣고 있어요. 고른 문장을 영어로 말해 보세요.';mic.disabled=true;
+   rec.onresult=e=>{const alts=[...e.results[0]].map(x=>x.transcript);let best=null,score=0,heard=alts[0];
+    for(const t of alts)for(const r of replies){if((talk.tried[talk.i]||[]).includes(r.e))continue;const sc2=talkScore(t,r.e);if(sc2>score){score=sc2;best=r;heard=t}}
+    if(best&&score>=0.6)handle(best,heard);else{note.className='gl-note no';note.textContent='잘 안 들렸어요. 들린 말: "'+heard+'" 다시 말해 볼까요?';mic.disabled=false}};
+   rec.onerror=()=>{const note=byId('talkNote');if(note){note.className='gl-note no';note.textContent='마이크를 쓸 수 없어요. 대답을 눌러서 골라 주세요.'}mic.disabled=false};
+   rec.onend=()=>{mic.disabled=false};
+   try{rec.start()}catch{mic.disabled=false}
+  },box,'talk-mic')}
 }
 function guardianScreen(){
  app.innerHTML='<section class="guardian-card"><h2>보호자 보고함</h2><p id="sync" role="status"></p><div id="pairArea"></div><div id="received"></div><button id="toAdmin" class="primary" hidden>가족 관리로 가기</button></section>';
@@ -596,8 +688,8 @@ function render(){
   nav.replaceChildren();
   for(const [page,label] of Object.entries(menus)){
     if(page==='guardian'&&state.cloudRole==='student')continue;
-    const item=button(({home:'홈',alphabet:'알파벳',words:'단어장',grammar:'문법',review:'복습',guardian:'보호자',settings:'관리자'})[page],()=>go(page),nav);
-    item.dataset.symbol=({home:'⌂',alphabet:'Aa',words:'▤',grammar:'≡',review:'↻',guardian:'♡',settings:'⚙'})[page];item.setAttribute('aria-label',label);
+    const item=button(({home:'홈',alphabet:'알파벳',words:'단어장',grammar:'문법',review:'복습',talk:'대화',guardian:'보호자',settings:'관리자'})[page],()=>go(page),nav);
+    item.dataset.symbol=({home:'⌂',alphabet:'Aa',words:'▤',grammar:'≡',review:'↻',talk:'❝',guardian:'♡',settings:'⚙'})[page];item.setAttribute('aria-label',label);
     if(view===page)item.setAttribute('aria-current','true');
   }
   if(view==='home'){
@@ -615,6 +707,8 @@ function render(){
   if(view==='lesson'){renderLesson();if(lesson.position<lesson.ids.length)button('저장하고 나가기',()=>go('home'),app,'exit')}
   if(view==='settings')adminScreen();
   if(view==='guardian')guardianScreen();
+  if(view==='talk')renderTalkList();
+  if(view==='talkrun')renderTalk();
   if(view==='pair'){app.innerHTML='<section class="pair-card"><img src="./icon-192.png" alt="" class="pair-icon"><h2>기기 연결</h2><div id="pairArea"></div></section>';pairing(byId('pairArea'))}
   if(view==='alphabet')renderAlphabet();
   if(view==='words')renderWords();if(view==='personal')notebook();

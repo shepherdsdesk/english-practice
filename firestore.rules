@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function member() {
+      return get(/databases/$(database)/documents/members/$(request.auth.uid)).data;
+    }
+    match /members/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+    }
+    match /families/{family}/reports/{id} {
+      function belongs(role) {
+        return request.auth != null && member().family == family && member().role == role;
+      }
+      allow read: if belongs('parent');
+      allow create: if belongs('student')
+        && id.matches('[a-f0-9-]{36}')
+        && request.resource.data.keys().hasAll(['uid','time','body'])
+        && request.resource.data.keys().hasOnly(['uid','time','body'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.time is timestamp
+        && request.resource.data.body is string
+        && request.resource.data.body.size() <= 12000;
+      allow update: if belongs('student') && resource.data.uid == request.auth.uid
+        && request.resource.data == resource.data;
+    }
+  }
+}

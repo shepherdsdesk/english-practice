@@ -69,6 +69,9 @@ button.danger{background:#b3261e;color:#fff;border-color:#b3261e}button.danger:h
 .gl-q .gl-en{padding-right:24px}
 .gl-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:8px;margin-top:12px}
 .gl-opt{margin:0;min-height:48px;font-size:1.1rem;font-weight:700;white-space:nowrap}
+.gl-opt{padding:0 4px;min-width:0}
+#glBody p,#glBody td,#glBody th,.gl-built{overflow-wrap:anywhere}
+.gl-opts.long{grid-template-columns:1fr}.gl-opts.long .gl-opt{white-space:normal;text-align:left;padding:10px 14px;font-size:1.02rem}
 .gl-opt.right{background:#e2efdf;border-color:#8fc4a4;color:#174d40}.gl-opt.wrong{background:#fdecea;border-color:#f1b8b1;color:#9a3b2f;text-decoration:line-through}
 .gl-why{margin:10px 0 0;line-height:1.6;word-break:keep-all;font-size:.95rem}.gl-why:empty{display:none}
 .gl-why.ok,.gl-note.ok{color:#174d40}.gl-why.no,.gl-note.no{color:#9a3b2f}
@@ -845,6 +848,7 @@ function renderGrammarSteps(title,L,select){
  if(step===2){
   L.choose.forEach((x,qi)=>{const c=card('gl-q','<p class="gl-num">'+(qi+1)+'</p><p class="gl-en" lang="en">'+gEsc(x.q)+'</p>'+(x.ko?'<p class="gl-ko">'+gEsc(x.ko)+'</p>':'')+'<div class="gl-opts"></div><p class="gl-why"></p>');
    const opts=c.querySelector('.gl-opts'),why=c.querySelector('.gl-why');
+   if(x.options.some(o=>o.length>(x.options.length>2?6:12)))opts.classList.add('long');
    x.options.forEach(o=>{const b=button(o,()=>{
      if(o===x.answer){opts.querySelectorAll('button').forEach(z=>z.disabled=true);b.classList.add('right');why.className='gl-why ok';why.textContent='정답! '+x.why;gs.done['c'+qi]=true}
      else{b.classList.add('wrong');b.disabled=true;why.className='gl-why no';why.textContent='아쉬워요. '+(L.wrongs?.[o]?L.wrongs[o]+' ':'')+'다시 골라 봐요.'}

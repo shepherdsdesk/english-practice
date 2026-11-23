@@ -8,10 +8,16 @@ service cloud.firestore {
     function isAdminOf(family) {
       return request.auth != null && member().role == 'admin' && member().family == family;
     }
+    function inFamily(family) {
+      return request.auth != null && member().family == family;
+    }
+    function isGuardianOf(family) {
+      return inFamily(family) && member().role in ['admin','parent'];
+    }
     match /invites/{code} {
       allow get: if request.auth != null;
       allow list: if isAdminOf(resource.data.family);
-      allow create: if isAdminOf(request.resource.data.family) && request.resource.data.role in ['student','parent'] && code.matches('[0-9]{8}') && request.resource.data.keys().hasOnly(['name','family','role','created']) && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 32 && (!('created' in request.resource.data) || request.resource.data.created == request.time);
+      allow create: if isAdminOf(request.resource.data.family) && request.resource.data.role in ['student','parent'] && code.matches('[0-9]{8}') && request.resource.data.keys().hasOnly(['name','family','role','created','restoreFrom']) && (!('restoreFrom' in request.resource.data) || (request.resource.data.restoreFrom is string && request.resource.data.restoreFrom.size() <= 128)) && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 32 && (!('created' in request.resource.data) || request.resource.data.created == request.time);
       allow update: if request.auth != null && !('claimed' in resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimed','claimedAt']) && request.resource.data.claimed == request.auth.uid && (!('claimedAt' in request.resource.data) || request.resource.data.claimedAt == request.time) && getAfter(/databases/$(database)/documents/members/$(request.auth.uid)).data.code == code;
       allow delete: if isAdminOf(resource.data.family);
     }
@@ -23,7 +29,56 @@ service cloud.firestore {
     }
     match /families/{family}/commands/{uid} {
       allow get: if request.auth != null && request.auth.uid == uid && member().family == family;
-      allow create, update: if isAdminOf(family) && request.resource.data.keys().hasOnly(['resetAt']) && request.resource.data.resetAt == request.time;
+      // 진도 초기화(resetAt)와 숨김 과정 열기(unlocks)
+      allow create, update: if isAdminOf(family)
+        && request.resource.data.keys().hasOnly(['resetAt','unlocks'])
+        && (!('resetAt' in request.resource.data) || request.resource.data.resetAt == request.time || (resource != null && resource.data.get('resetAt', null) == request.resource.data.resetAt))
+        && (!('unlocks' in request.resource.data) || (request.resource.data.unlocks is list && request.resource.data.unlocks.size() <= 10));
+    }
+    // 리그·주간 리포트용 통계: 본인만 쓰고, 가족이 읽어요.
+    match /families/{family}/stats/{uid} {
+      allow read: if inFamily(family);
+      allow create, update: if inFamily(family) && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name','role','week','points','days','weak','streak','learned','mastered','course','updated'])
+        && request.resource.data.days is string && request.resource.data.days.size() <= 20000
+        && request.resource.data.weak is string && request.resource.data.weak.size() <= 4000;
+    }
+    // 진도 백업: 본인이 쓰고, 같은 가족이 새 기기로 옮길 때 읽어요.
+    match /families/{family}/progress/{uid} {
+      allow read: if inFamily(family);
+      allow create, update: if inFamily(family) && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['data','updated'])
+        && request.resource.data.data is string && request.resource.data.data.size() <= 900000;
+    }
+    // 쿠폰 설정: 보호자·관리자가 정하고 가족이 읽어요.
+    match /families/{family}/coupons/{doc} {
+      allow read: if inFamily(family);
+      allow create, update: if isGuardianOf(family)
+        && request.resource.data.keys().hasOnly(['data','updated'])
+        && request.resource.data.data is string && request.resource.data.data.size() <= 20000;
+    }
+    // 쿠폰 기록: 학생이 받고 쓰기를 요청하면, 보호자가 허락해요.
+    match /families/{family}/couponLog/{id} {
+      allow read: if inFamily(family);
+      allow create: if inFamily(family) && member().role == 'student'
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'earned'
+        && request.resource.data.keys().hasOnly(['uid','name','title','status','time'])
+        && request.resource.data.title is string && request.resource.data.title.size() <= 40
+        && request.resource.data.time == request.time;
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','changed'])
+        && (
+          (inFamily(family) && resource.data.uid == request.auth.uid && request.resource.data.status in ['requested','used'])
+          || (isGuardianOf(family) && request.resource.data.status in ['approved','later','used'])
+        );
+    }
+    // 칭찬 한마디: 보호자·관리자가 보내고 가족이 읽어요.
+    match /families/{family}/cheers/{id} {
+      allow read: if inFamily(family);
+      allow create: if isGuardianOf(family)
+        && request.resource.data.keys().hasOnly(['to','from','text','time'])
+        && request.resource.data.text is string && request.resource.data.text.size() <= 80
+        && request.resource.data.time == request.time;
     }
     match /families/{family}/wordbook/{doc} {
       allow get: if request.auth != null && member().family == family;

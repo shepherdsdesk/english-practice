@@ -38,7 +38,7 @@ SCREENS.admin=()=>{
 };
 SCREENS.admin.after=()=>{
  if(!adminOpen)return SCREENS.pin.after();
- $('#gemForm').onsubmit=e=>{e.preventDefault();const k=$('#gkey').value.trim(),m=$('#gmodel').value.trim()||'gemini-2.5-flash';const g=gemini();if(k&&!/^[A-Za-z0-9_\-]{20,}$/.test(k)){$('#gemNote').textContent='키 모양을 다시 확인하세요.';return}
+ $('#gemForm').onsubmit=e=>{e.preventDefault();const k=$('#gkey').value.replace(/\s+/g,''),m=$('#gmodel').value.trim()||'gemini-2.5-flash';const g=gemini();if(k&&!/^[\x21-\x7E]{20,300}$/.test(k)){$('#gemNote').textContent='키 모양을 다시 확인하세요. 따옴표나 한글 없이 키만 붙여 넣어 주세요.';return}
   try{localStorage.setItem('wordstep-gemini',JSON.stringify({key:k||g.key,model:m}))}catch{}$('#gkey').value='';$('#gemNote').textContent='저장했어요. 이 기기에만 보관돼요.';$('#gemNote').className='note ok'};
  if(state.cloudRole!=='admin')return;
  $('#issueForm').onsubmit=issueCode;

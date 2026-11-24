@@ -19,10 +19,26 @@ function mkSession(kind,items,extra={}){
  state.onboarded=true;
  S={kind,items,i:0,ok:0,graded:0,wrong:new Map(),requeued:new Set(),newIds:new Set(items.filter(x=>x.t==='intro'||x.t==='L-intro').map(x=>x.id)),start:Date.now(),answer:null,noSpeak:false,...extra};
  S.learnedBefore=learned().length;
- scr('q');
+ saveSession();scr('q');
 }
+/* ── 진행 중인 학습 저장과 이어 하기 ── */
+function saveSession(){
+ if(!S){state.session=null;persist();return}
+ const i=S.answer?S.i+1:S.i;
+ if(i>=S.items.length){state.session=null;persist();return}
+ const {answer,sel,...rest}=S;
+ state.session={...rest,i,items:S.items.map(({mic,heard,typed,picked,...x})=>x),wrong:[...S.wrong],requeued:[...S.requeued],newIds:[...S.newIds],course:C.id,saved:Date.now()};
+ persist();
+}
+function savedSession(){const s=state.session;if(!s||s.course!==C.id||!Array.isArray(s.items)||s.i>=s.items.length)return null;if(Date.now()-(s.saved||0)>14*86400000){state.session=null;return null}return s}
+function sessionLabel(s){return (s.title||'학습')+' · '+(s.i+1)+'/'+s.items.length}
+function resumeSession(){const s=savedSession();if(!s)return false;S={...s,wrong:new Map(s.wrong||[]),requeued:new Set(s.requeued||[]),newIds:new Set(s.newIds||[]),answer:null,sel:null,start:Date.now()};scr('q');return true}
+function sameSession(kind,u,k){const s=savedSession();return s&&s.kind===kind&&s.unit===u&&(k==null||s.step===k)}
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&S){endTime();saveSession()}});
+addEventListener('pagehide',()=>{if(S){endTime();saveSession()}});
 /* 오늘의 학습: 복습할 단어 + 새 단어 */
 function startDaily(){
+ if(sameSession('daily')){resumeSession();return}
  const goal=state.goal||20;const due=dueWords();const nw=nextNewWords(Math.max(2,Math.min(5,Math.round(goal/4))));
  const items=[],tail=[];
  nw.forEach(e=>{const [a,...rest]=newItems(e);items.push(a);tail.push(...rest)});
@@ -35,6 +51,7 @@ function startDaily(){
 }
 /* 학습 지도의 한 걸음: 단어 5개를 4단계로 */
 function startStep(u,k){
+ if(sameSession('step',u,k)){resumeSession();return}
  const words=stepsOf(u)[k];if(!words)return;
  const a=[],b=[],c=[];
  words.forEach(e=>{if(isLetter(e)){a.push({id:e.id,t:'L-intro'},{id:e.id,t:'L-listen'});b.push({id:e.id,t:'L-case'});c.push({id:e.id,t:'L-first'},{id:e.id,t:'L-type'});return}
@@ -44,6 +61,7 @@ function startStep(u,k){
 function startWeak(){const w=weakWords();if(!w.length){toast('약한 단어가 없어요. 아주 잘하고 있어요!');return}mkSession('weak',shuffle(w.flatMap(e=>[{id:e.id,t:isLetter(e)?'L-listen':'meaning'},{id:e.id,t:isLetter(e)?'L-type':'spell',hint:1}])),{title:'약한 단어 5분 세트'})}
 function startReviewAll(){const d=dueWords();if(!d.length){toast('지금 복습할 단어가 없어요.');return}mkSession('review',d.slice(0,20).map(e=>({id:e.id,t:typeFor(e)})),{title:'잊을 때쯤 복습'})}
 function startTest(u){
+ if(sameSession('test',u)){resumeSession();return}
  const words=C.units[u]?.words||[];if(!words.length)return;
  let pool=shuffle(words).slice(0,10);while(pool.length<10&&words.length)pool.push(pick(words));
  mkSession('test',pool.map(e=>({id:e.id,t:typeFor(e,{test:true}),noHint:true})),{unit:u,title:(u+1)+'단원 시험'});
@@ -72,7 +90,7 @@ SCREENS.q=()=>{
  return `<main class="screen focus">${head}<section class="stack" style="gap:6px"><span class="qkind ${kc}">${S.kind==='test'?esc(S.title)+' · ':''}${kname}</span><h1 class="qtitle">${body.title}</h1></section>${body.html}<div class="grow"></div>${S.answer?'<div class="pad-sheet"></div>':body.foot||''}</main>${sheet}`;
 };
 SCREENS.q.focus=true;
-SCREENS.q.after=()=>{const it=cur();if(!it||S.answer)return;Q[it.t].after?.(it,curWord())};
+SCREENS.q.after=()=>{saveSession();const it=cur();if(!it||S.answer)return;Q[it.t].after?.(it,curWord())};
 const confirmBtn=(ready,label='확인')=>`<button class="btn big primary" data-a="check" ${ready?'':'disabled'}>${label}</button>`;
 function optsHTML(list,{lang=''}={}){const a=S.answer;return `<div class="opts${list.some(o=>[...o].reduce((n,ch)=>n+(ch.charCodeAt(0)>255?2:1),0)>14)?' one':''}">${list.map((o,i)=>{let cls='opt',st='';if(a){if(norm(o)===norm(a.correct))cls+=' right';else if(i===S.sel)cls+=' wrong';else cls+=' dim'}return `<button type="button" class="${cls}" data-a="sel" data-v="${i}" aria-pressed="${S.sel===i}" ${a?'disabled':''} ${lang?`lang="${lang}"`:''}>${esc(o)}</button>`}).join('')}</div>`}
 const Q={};
@@ -128,9 +146,9 @@ Q['L-type'].after=()=>{const f=$('#spell');if(!f)return;f.oninput=()=>{cur().typ
 function correctOf(it,e){
  switch(it.t){case 'listen':case 'meaning':return e.meaning;case 'reverse':case 'cloze':return e.word;case 'L-listen':return e.word;case 'L-case':case 'L-first':case 'L-type':return e.word.toLowerCase();default:return e.word}
 }
-ACT.sel=v=>{if(S?.answer)return;S.sel=Number(v);const it=cur();if(it.t==='listen'||it.t==='L-listen'){}render()};
+ACT.sel=v=>{if(S?.answer)return;S.sel=Number(v);SND.tap();const it=cur();if(it.t==='listen'||it.t==='L-listen'){}render()};
 ACT.introOk=()=>{S.i++;S.sel=null;render()};
-ACT.tile=v=>{const it=cur(),e=curWord();it.picked.push(Number(v));const core=[...e.word].filter(ch=>/[a-z0-9']/i.test(ch)).join('');
+ACT.tile=v=>{SND.tap();const it=cur(),e=curWord();it.picked.push(Number(v));const core=[...e.word].filter(ch=>/[a-z0-9']/i.test(ch)).join('');
  if(it.picked.length===core.length){const got=it.picked.map(i=>it.tiles.find(t=>t.i===i).ch).join('');answer(norm(got)===norm(core),got);return}render()};
 ACT.untile=()=>{cur().picked.pop();render()};
 ACT.hint=v=>{const it=cur();it.level=Number(v);render()};
@@ -159,13 +177,14 @@ function answerSheet(it,e){
  <button class="btn big primary" data-a="next" autofocus>계속하기</button>${!a.ok&&S.kind!=='test'?'<p class="note" style="text-align:center">이 단어는 조금 뒤에 한 번 더 나와요</p>':''}</div></section>`;
 }
 ACT.next=()=>{S.i++;S.answer=null;S.sel=null;render()};
-ACT.quit=()=>{if(S&&S.graded>0&&!confirm('지금까지 한 것은 저장돼요. 그만할까요?'))return;endTime();S=null;persist();save();go(V.tab==='q'?'today':V.tab)};
+ACT.quit=()=>{endTime();saveSession();const k=S?.kind;S=null;save();toast('여기까지 저장했어요. 나중에 이어서 할 수 있어요.');go(k==='step'||k==='test'||k==='retry'?'path':'today')};
 function endTime(){if(S){today().ms+=Math.min(Date.now()-S.start,60*60*1000);S.start=Date.now()}}
 function toast(msg){const t=document.createElement('div');t.setAttribute('role','status');t.style.cssText='position:fixed;left:50%;bottom:calc(110px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#1F2430;color:#fff;padding:12px 18px;border-radius:14px;font-weight:700;font-size:14px;z-index:50;max-width:88vw;text-align:center';t.textContent=msg;document.body.append(t);setTimeout(()=>t.remove(),2600)}
 
 /* ── 끝난 뒤 ── */
 function finishSession(){
- endTime();trimDays();const s=S;S=null;
+ setTimeout(()=>window.showCheer?.(),2500);
+ endTime();trimDays();const s=S;S=null;state.session=null;
  const words=[...new Set(s.items.map(x=>x.id))].map(id=>C.byId.get(id)).filter(Boolean);
  if(s.kind==='test'){
   const right=s.items.length-s.wrong.size,pts=Math.round(right/s.items.length*100);
@@ -189,7 +208,8 @@ SCREENS.done=p=>{
  <div class="grow"></div>
  ${p.retryUnit!=null?`<button class="btn big blue" data-a="test" data-v="${p.retryUnit}">다시 시험 보기</button><button class="btn ghost full" data-a="tab" data-v="path">나중에 할래요</button>`:`<button class="btn big primary" data-a="tab" data-v="${p.kind==='step'?'path':'today'}">계속하기</button>`}</main>`;
 };
-function celebrate(){return `<div style="position:relative;height:200px;display:flex;align-items:center;justify-content:center"><svg width="300" height="200" viewBox="0 0 300 200" aria-hidden="true" style="position:absolute;left:50%;top:0;transform:translateX(-50%)"><circle cx="40" cy="40" r="7" fill="#FFC531"/><circle cx="262" cy="56" r="6" fill="#3D7BEA"/><rect x="236" y="140" width="14" height="14" rx="3" fill="#FF9FA0" transform="rotate(20 243 147)"/><rect x="48" y="150" width="12" height="12" rx="3" fill="#12A578" transform="rotate(-15 54 156)"/><path d="M90 26l4 9 9 1-7 6 2 9-8-5-8 5 2-9-7-6 9-1z" fill="#FFC531"/><path d="M214 18l3 7 7 1-5 5 1 7-6-4-6 4 1-7-5-5 7-1z" fill="#FFC531"/></svg><span style="position:relative">${mascot(160,'happy')}</span></div>`}
+function confetti(n=60){if(themeOf()==='calm'||matchMedia('(prefers-reduced-motion: reduce)').matches)return;const box=document.createElement('div');box.className='confetti';box.setAttribute('aria-hidden','true');const cols=['#FFC531','#12A578','#3D7BEA','#F08A24','#FF9FA0','#8A5CE0'];for(let i=0;i<n;i++){const e=document.createElement('i');e.style.left=Math.random()*100+'%';e.style.background=cols[i%cols.length];e.style.animationDuration=(1.6+Math.random()*1.6)+'s';e.style.animationDelay=Math.random()*.6+'s';box.append(e)}document.body.append(box);setTimeout(()=>box.remove(),4200)}
+function celebrate(){setTimeout(()=>{confetti();SND.fanfare()},150);return `<div class="celebrate" style="position:relative;height:200px;display:flex;align-items:center;justify-content:center"><svg width="300" height="200" viewBox="0 0 300 200" aria-hidden="true" style="position:absolute;left:50%;top:0;transform:translateX(-50%)"><circle cx="40" cy="40" r="7" fill="#FFC531"/><circle cx="262" cy="56" r="6" fill="#3D7BEA"/><rect x="236" y="140" width="14" height="14" rx="3" fill="#FF9FA0" transform="rotate(20 243 147)"/><rect x="48" y="150" width="12" height="12" rx="3" fill="#12A578" transform="rotate(-15 54 156)"/><path d="M90 26l4 9 9 1-7 6 2 9-8-5-8 5 2-9-7-6 9-1z" fill="#FFC531"/><path d="M214 18l3 7 7 1-5 5 1 7-6-4-6 4 1-7-5-5 7-1z" fill="#FFC531"/></svg><span style="position:relative">${mascot(160,'happy')}</span></div>`}
 ACT.test=v=>startTest(Number(v));
 ['done','retry','pass','reward'].forEach(n=>queueMicrotask(()=>{if(SCREENS[n])SCREENS[n].focus=true}));
 SCREENS.retry=p=>{
@@ -221,7 +241,7 @@ SCREENS.reward=p=>{
 };
 ACT.cpick=v=>{V.p.sel=Number(v);render()};
 ACT.cget=async(v,el)=>{const c=V.p.list[V.p.sel??0];el.disabled=true;
- try{const cl=await cloud(),u=await me();await cl.store.setDoc(fdoc(cl,'families',u.family,'couponLog',crypto.randomUUID()),{uid:u.uid,name:u.name||'',title:c.title,status:'earned',time:cl.store.serverTimestamp()});toast(c.title+' 쿠폰을 받았어요!');go('me')}
+ try{const cl=await cloud(),u=await me();await cl.store.setDoc(fdoc(cl,'families',u.family,'couponLog',crypto.randomUUID()),{uid:u.uid,name:u.name||'',title:c.title,status:'earned',time:cl.store.serverTimestamp()});SND.coin();confetti(40);toast(c.title+' 쿠폰을 받았어요!');go('me')}
  catch{el.disabled=false;toast('쿠폰을 받지 못했어요. 인터넷 연결을 확인해 주세요.')}};
 
 /* ── 문법 6단계 (기존 레슨 이식) ── */

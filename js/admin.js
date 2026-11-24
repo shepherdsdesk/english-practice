@@ -171,7 +171,11 @@ SCREENS.report.after=p=>{if(p.cheer){p.cheer=false;const c=$('#cheerText');if(c)
 ACT.rsel=v=>{V.p.uid=v;render()};
 ACT.cheer=async(v,el)=>{const t=$('#cheerText').value.trim();if(!t)return;el.disabled=true;try{const c=await cloud(),u=await me();await c.store.setDoc(fdoc(c,'families',u.family,'cheers',crypto.randomUUID()),{to:v,from:u.name||(u.role==='admin'?'관리자':'보호자'),text:t.slice(0,60),time:c.store.serverTimestamp()});$('#cheerText').value='';toast('칭찬을 보냈어요!')}catch{toast('보내지 못했어요.')}finally{el.disabled=false}};
 async function checkCheers(){if(state.cloudRole!=='student')return;try{const c=await cloud(),u=await me();const q=c.store.query(c.store.collection(c.db,'families',u.family,'cheers'),c.store.where('to','==',u.uid));const s=await c.store.getDocs(q);
- const last=s.docs.map(d=>({id:d.id,...d.data(),t:d.data().time?.toMillis?.()||0})).sort((a,b)=>b.t-a.t)[0];if(last&&last.id!==state.cheer?.id){state.cheer={id:last.id,from:last.from,text:last.text,seen:false};persist();if(V.tab==='today'&&!V.screen)render()}}catch{}}
+ const last=s.docs.map(d=>({id:d.id,...d.data(),t:d.data().time?.toMillis?.()||0})).sort((a,b)=>b.t-a.t)[0];if(last&&last.id!==state.cheer?.id){state.cheer={id:last.id,from:last.from,text:last.text,seen:false};persist();showCheer()}}catch{}}
+function showCheer(){const ch=state.cheer;if(!ch||ch.seen||S||document.querySelector('.cheer-pop'))return;
+ const box=document.createElement('div');box.className='cheer-pop';box.setAttribute('role','dialog');box.setAttribute('aria-label','칭찬 한마디');
+ box.innerHTML=`<div class="card">${mascot(110,'happy')}<span class="tag y" style="background:var(--yellow-soft);color:var(--yellow-t);height:30px;font-size:13px">${esc(ch.from||'보호자')}의 칭찬 한마디</span><p class="msg">${esc(ch.text)}</p><button class="btn big primary" data-a="cheerOk">고마워요!</button></div>`;
+ document.body.append(box);SND.chime();confetti(36);}
 
 /* ── 보호자: 쿠폰 관리 ── */
 SCREENS.coupons=p=>{
@@ -217,6 +221,9 @@ async function boot(){
  if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('./sw.js').catch(()=>{});let reloaded=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(reloaded||S)return;reloaded=true;location.reload()})}
  if(state.cloudRole||state.cloudUid){identify().then(u=>{if(u){if((u.role==='parent'||u.role==='admin')&&V.tab==='me'&&!V.screen)V.tab='family';refresh();flushReports();checkCheers();loadLeague().then(()=>{if(!V.screen&&['today','me'].includes(V.tab))refresh()})}}).catch(()=>{})}
  setInterval(()=>{if(state.cloudRole)syncCloud()},5*60*1000);
+ setInterval(()=>{if(state.cloudRole==='student'&&!document.hidden)checkCheers()},2*60*1000);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.cloudRole==='student')checkCheers()});
+ setTimeout(showCheer,800);
  document.addEventListener('visibilitychange',()=>{if(document.hidden&&state.cloudRole)syncCloud()});
 }
 boot();

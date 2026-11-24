@@ -2,6 +2,17 @@
 /* 워드스텝 v2 — 탭 화면: 오늘, 학습 지도, 내 단어, 나 */
 
 /* ── 오늘 ── */
+function resumeCardHTML(){const s=savedSession();if(!s)return '';const pct=Math.round(s.i/s.items.length*100);
+ return `<section class="card stack" style="border-color:var(--yellow);background:#FFFBEA"><div class="card-title"><span class="h-sm" style="color:var(--yellow-t)">하다 만 학습이 있어요</span><span class="tag y" style="background:var(--yellow-soft);color:var(--yellow-t)">${s.i}/${s.items.length}</span></div>
+ <b class="ell" style="font-size:17px">${esc(s.title||'학습')}</b><div class="bar" style="height:10px"><i style="width:${pct}%;background:var(--yellow)"></i></div>
+ <div class="btns two62"><button class="btn" data-a="dropSession" style="margin:0">처음부터</button><button class="btn primary" data-a="resume" style="margin:0">이어서 하기</button></div></section>`}
+ACT.resume=()=>{if(!resumeSession())toast('이어 할 학습이 없어요.')};
+ACT.dropSession=()=>{if(!confirm('하던 학습을 지우고 처음부터 할까요? 이미 맞힌 단어 기록은 남아요.'))return;const s=state.session;state.session=null;persist();if(s?.kind==='test')startTest(s.unit);else if(s?.kind==='step')startStep(s.unit,s.step);else render()};
+function courseProgress(){const total=allWords().length,lw=learned().length,mastered=learned().filter(e=>W(e.id).lv>=5).length,passed=C.units.filter((_,u)=>unitDone(u)).length,u=currentUnit(),steps=stepsOf(u),k=steps.findIndex((_,j)=>!stepDone(u,j));return {total,lw,mastered,passed,units:C.units.length,u,k,steps:steps.length}}
+function progressCardHTML(){const p=courseProgress();if(!p.total)return '';const pct=Math.round(p.lw/p.total*100);
+ return `<button class="card stack" data-a="tab" data-v="path" style="text-align:left;width:100%;cursor:pointer"><div class="card-title"><span class="h-sm">내 진도 · ${esc(COURSES[C.id]?.name||'')} 과정</span>${I(IC.next,16,2.4,'style="color:#9AA1AE"')}</div>
+ <div class="tiles3"><div class="stat g"><span>지금 단원</span><b>${p.u+1}<small style="font-size:14px;font-weight:500;color:var(--muted)">/${p.units}</small></b></div><div class="stat b"><span>통과한 시험</span><b>${p.passed}개</b></div><div class="stat y"><span>익힌 단어</span><b>${p.lw}</b></div></div>
+ <div><div class="goal-row" style="margin-bottom:6px;font-size:13px"><span class="muted">${esc(C.units[p.u]?.name||'')} · ${p.k<0?'시험만 남았어요':(p.k+1)+'번째 걸음'}</span><span>전체 ${pct}%</span></div><div class="bar" style="height:10px"><i style="width:${pct}%"></i></div></div></button>`}
 SCREENS.today=()=>{
  if(C.id==='kids')return kidsToday();
  const d=today(),goal=state.goal||20,pct=Math.min(100,Math.round(d.q/goal*100));
@@ -18,14 +29,15 @@ SCREENS.today=()=>{
  <header class="top-chips"><button class="chip btn-chip" data-a="tab" data-v="me"><span style="width:8px;height:8px;border-radius:4px;background:var(--brand)"></span>${esc(COURSES[C.id]?.name||'')} 과정</button><span class="r">${state.cloudRole?`<button class="chip b btn-chip" data-a="open" data-v="league">${I(IC.trophy,16,1.6)}리그${leagueRank()?' '+leagueRank()+'등':''}</button>`:''}<span class="chip y">${I(IC.flame,18)}${streak()}일 연속</span></span></header>
  <div class="split"><div>
  <section class="card hello">${mascot(88)}<div style="min-width:0"><p>${who?esc(who)+', 반가워요!':'반가워요!'}</p><h1 class="t-display">오늘도 한 걸음<br>같이 걸어 볼까요?</h1></div></section>
- ${connectTipHTML()}${cheerHTML()}
+ ${resumeCardHTML()}${connectTipHTML()}${cheerHTML()}
  <section class="card"><div class="goal-row"><span>오늘 목표</span><span>${Math.min(d.q,goal)} / ${goal} 문제</span></div><div class="bar"><i style="width:${pct}%"></i></div></section>
  <section class="card tight"><div class="week">${wk.map((k,i)=>`<div>${'월화수목금토일'[i]}<i class="${state.days[k]?.q?'on':''} ${k===todayK?'today':''}"></i></div>`).join('')}</div></section>
  </div><div>
+ ${progressCardHTML()}
  <h2 class="sec-label">오늘 할 일</h2>
  <section class="card flush list">${rows.map(([a,ic,c,t,v])=>`<button class="lrow" data-a="${a}"><span class="ico ${c}">${I(ic,22)}</span><span class="t">${t}</span><span class="v">${v}</span></button>`).join('')}</section>
  </div></div>
- <button class="btn big primary" data-a="start">${d.q>=goal?'목표 달성! 더 공부하기':d.q?'이어서 학습하기':'오늘 학습 시작'}</button>
+ ${savedSession()?`<button class="btn big primary" data-a="resume">이어서 하기</button>`:`<button class="btn big primary" data-a="start">${d.q>=goal?'목표 달성! 더 공부하기':'오늘 학습 시작'}</button>`}
  </main>`;
 };
 function kidsToday(){
@@ -33,7 +45,7 @@ function kidsToday(){
  const ex=nxt?.extra?.ex;const who=callName();
  return `<main class="screen">
  <header class="hello" style="gap:12px">${mascot(72)}<div class="card tight t-display" style="flex:1;font-size:22px;padding:12px 16px">${who?esc(who)+', ':''}같이 놀자!</div></header>
- ${connectTipHTML()}
+ ${resumeCardHTML()}${connectTipHTML()}
  ${nxt?`<section class="card letter-card"><span class="t-display muted" style="font-size:18px">${isLetter(nxt)?'오늘의 글자':'오늘의 단어'}</span>${isLetter(nxt)?`<div class="letter-big"><span class="u">${esc(nxt.word)}</span><span class="l">${esc(nxt.word.toLowerCase())}</span></div>`:`<div class="t-display" style="font-size:56px;color:var(--blue)" lang="en">${esc(nxt.word)}</div>`}${ex?`<div class="t-display" style="font-size:30px" lang="en"><span style="color:var(--blue)">${esc(ex[0][0])}</span>${esc(ex[0].slice(1))} <span class="muted" style="font-size:20px">${esc(ex[1])}</span></div>`:`<div class="t-display muted" style="font-size:22px">${esc(nxt.meaning)}</div>`}</section>`:''}
  <section class="tiles3">
   <button class="btn blue t-display" style="height:96px;flex-direction:column;gap:6px;font-size:20px;font-weight:400;border-radius:24px" data-a="say" data-v="${esc(nxt?.word||'A')}">${I(IC.speaker,30)}듣기</button>
@@ -50,7 +62,7 @@ ACT.weak=()=>startWeak();
 ACT.gramNext=()=>{const g=nextGrammar();if(g>=0)openGrammar(g)};
 ACT.talkTab=()=>{state.pathSeg='talk';go('path')};
 function cheerHTML(){const c=state.cheer;if(!c||c.seen)return '';return `<section class="card tight" style="background:var(--yellow-soft);border-color:transparent;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center"><span><b class="nw" style="display:block;font-size:13px;color:var(--yellow-t)">${esc(c.from||'보호자')}의 칭찬 한마디</b><span style="font-weight:700">${esc(c.text)}</span></span><button class="iconbtn" data-a="cheerOk" aria-label="닫기">${I(IC.x,20)}</button></section>`}
-ACT.cheerOk=()=>{if(state.cheer)state.cheer.seen=true;persist();render()};
+ACT.cheerOk=()=>{if(state.cheer)state.cheer.seen=true;persist();document.querySelector('.cheer-pop')?.remove();if(!S)render()};
 let leagueCache=null;
 function leagueRank(){if(!leagueCache)return 0;const i=leagueCache.findIndex(x=>x.uid===state.cloudUid);return i>=0?i+1:0}
 
@@ -72,17 +84,23 @@ function pathWords(){
  if(!C.units.length)return '<div class="card empty">아직 단어가 없어요.</div>';
  const u=Math.min(state.pathUnit?.[C.id]??currentUnit(),C.units.length-1),unit=C.units[u],openU=unitOpen(u);
  const steps=stepsOf(u);let curK=steps.findIndex((_,k)=>!stepDone(u,k));
- const nodes=steps.map((ws,k)=>{const done=stepDone(u,k),cur=openU&&k===curK,lock=!openU||(!done&&k>curK&&curK>=0);
+ const nodes=steps.map((ws,k)=>{const done=stepDone(u,k),cur=openU&&k===curK,lock=!openU||(!done&&k>curK&&curK>=0&&!unitDone(u)&&!sameSession('step',u,k));
   const off=ZIG[k%ZIG.length];
   const label=ws[0]&&isLetter(ws[0])?ws.map(e=>e.word).join(' '):'';
-  return `<div class="node-wrap" style="transform:translateX(${off}px)">${cur?`<span class="bubble">${k+1}번째 걸음 · 지금 여기!</span>`:''}<button class="node${done?'':cur?' cur':lock?' lock':''}" data-a="step" data-v="${u}|${k}" ${lock?'aria-disabled="true"':''} aria-label="${k+1}번째 걸음${done?' 완료':lock?' 잠김':''}">${I(done?IC.check:cur?IC.star:lock?IC.lock:IC.star,done?34:cur?40:28,done?3:2.2)}</button>${label?`<span class="node-label" lang="en">${esc(label)}</span>`:''}</div>`}).join('');
+  const paused=sameSession('step',u,k);
+  return `<div class="node-wrap" style="transform:translateX(${off}px)">${paused?`<span class="bubble" style="color:var(--yellow-t)">하던 걸음 · 이어서 하기</span>`:cur?`<span class="bubble">${k+1}번째 걸음 · 지금 여기!</span>`:''}<button class="node${done?'':cur?' cur':lock?' lock':''}" data-a="step" data-v="${u}|${k}" ${lock?'aria-disabled="true"':''} aria-label="${k+1}번째 걸음${done?' 완료':lock?' 잠김':''}">${I(done?IC.check:cur?IC.star:lock?IC.lock:IC.star,done?34:cur?40:28,done?3:2.2)}</button>${label?`<span class="node-label" lang="en">${esc(label)}</span>`:''}</div>`}).join('');
  const score=prog().tests[u]||0,allSteps=steps.every((_,k)=>stepDone(u,k));
- const testNode=`<div class="node-wrap" style="transform:translateX(8px)"><button class="node test${score>=80?' passed':''}" data-a="testNode" data-v="${u}" aria-label="${u+1}단원 시험">${I(IC.test,32)}</button><span class="node-label" style="color:var(--blue-d)">${u+1}단원 시험${score?' · '+score+'점':''}</span></div>`;
+ const testNode=`<div class="node-wrap" style="transform:translateX(8px)"><button class="node test${score>=80?' passed':''}" data-a="testNode" data-v="${u}" aria-label="${u+1}단원 시험">${I(IC.test,32)}</button><span class="node-label" style="color:var(--blue-d)">${u+1}단원 시험${sameSession('test',u)?' · 이어서 하기':score?' · 최고 '+score+'점':''}</span></div>`;
+ const doneSteps=steps.filter((_,k)=>stepDone(u,k)).length,p=courseProgress();
+ const overview=`<section class="card stack"><div class="card-title"><span class="h-sm">전체 ${p.units}단원 중 ${p.passed}개 통과</span><span class="note nw">익힌 단어 ${p.lw}/${p.total}</span></div>
+ <div style="display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:5px">${C.units.map((_,j)=>{const ok=unitDone(j),on=j===u,open=unitOpen(j);return `<button data-a="unitGo" data-v="${j}" aria-label="${j+1}단원${ok?' 통과':open?'':' 잠김'}" style="height:30px;border-radius:9px;border:${on?'2px solid var(--ink)':'0'};padding:0;font-size:12px;font-weight:800;background:${ok?'var(--brand)':open?'var(--yellow)':'#E9ECF3'};color:${ok?'#fff':open?'#5A3B00':'#9AA1AE'}">${j+1}</button>`}).join('')}</div>
+ <div style="display:flex;gap:12px;font-size:12px;color:var(--muted);flex-wrap:wrap"><span class="nw"><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--brand);margin-right:4px"></i>통과</span><span class="nw"><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--yellow);margin-right:4px"></i>공부 중</span><span class="nw"><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#E9ECF3;margin-right:4px"></i>잠김</span></div></section>`;
  return `<div class="unit-pick"><button class="iconbtn" data-a="unit" data-v="-1" ${u<=0?'disabled':''} aria-label="이전 단원">${I(IC.back,22)}</button><span>${u+1} / ${C.units.length}단원</span><button class="iconbtn" data-a="unit" data-v="1" ${u>=C.units.length-1?'disabled':''} aria-label="다음 단원">${I(IC.next,22)}</button></div>
- <section class="unit-banner"><div style="min-width:0"><small>${esc(COURSES[C.id]?.name||'')} · ${u+1}단원</small><h2 class="t-display">${esc(unit.name)}</h2></div><button class="btn sm" data-a="open" data-v="unitWords">${I(IC.book,18)}단어 보기</button></section>
+ ${overview}<section class="unit-banner"><div style="min-width:0"><small>${u+1}단원 · 걸음 ${doneSteps}/${steps.length} · 시험 ${score>=80?'통과':score?score+'점':'아직'}</small><h2 class="t-display">${esc(unit.name)}</h2></div><button class="btn sm" data-a="open" data-v="unitWords">${I(IC.book,18)}단어 보기</button></section>
  ${openU?'':`<p class="warnbox">${I(IC.lock,18)}<span>${u}단원 시험을 통과하면 열려요.</span></p>`}
  <div class="path">${nodes}${testNode}</div>${!allSteps&&openU?'<p class="note" style="text-align:center">걸음을 다 마치지 않아도 시험에 먼저 도전할 수 있어요</p>':''}`;
 }
+ACT.unitGo=v=>{(state.pathUnit??={})[C.id]=Number(v);persist();render()};
 ACT.unit=v=>{const u=Math.min(state.pathUnit?.[C.id]??currentUnit(),C.units.length-1)+Number(v);(state.pathUnit??={})[C.id]=Math.max(0,Math.min(C.units.length-1,u));persist();render()};
 ACT.step=(v,el)=>{const [u,k]=v.split('|').map(Number);if(el.getAttribute('aria-disabled')){toast(unitOpen(u)?'앞의 걸음을 먼저 마쳐요.':u+'단원 시험을 통과하면 열려요.');return}startStep(u,k)};
 ACT.testNode=v=>{const u=Number(v);if(!unitOpen(u)){toast(u+'단원 시험을 통과하면 열려요.');return}startTest(u)};

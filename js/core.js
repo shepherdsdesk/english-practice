@@ -125,6 +125,8 @@ function say(text,{slow=false}={}){
  a.onplaying=()=>clearTimeout(t);a.onerror=rec;a.play().catch(rec);
 }
 let actx;
+function tone(notes,type='triangle',vol=.16){if(!state.sfx)return;try{actx??=new (window.AudioContext||window.webkitAudioContext)();const t0=actx.currentTime;notes.forEach(([f,at,dur])=>{const o=actx.createOscillator(),g=actx.createGain();o.type=type;o.frequency.value=f;g.gain.setValueAtTime(.0001,t0+at);g.gain.exponentialRampToValueAtTime(vol,t0+at+.02);g.gain.exponentialRampToValueAtTime(.0001,t0+at+dur);o.connect(g).connect(actx.destination);o.start(t0+at);o.stop(t0+at+dur+.02)})}catch{}}
+const SND={tap:()=>tone([[520,0,.06]],'sine',.08),fanfare:()=>tone([[523,0,.14],[659,.13,.14],[784,.26,.14],[1047,.4,.38]]),coin:()=>tone([[988,0,.08],[1319,.08,.3]],'square',.07),chime:()=>tone([[784,0,.25],[988,.18,.25],[1175,.36,.45]],'sine',.14),streak:()=>tone([[659,0,.1],[784,.1,.1],[988,.2,.1],[1319,.3,.3]])};
 function sfx(ok){if(!state.sfx)return;try{actx??=new (window.AudioContext||window.webkitAudioContext)();const t=actx.currentTime;const notes=ok?[660,880]:[300,220];notes.forEach((f,i)=>{const o=actx.createOscillator(),g=actx.createGain();o.type=ok?'triangle':'sine';o.frequency.value=f;g.gain.setValueAtTime(.0001,t+i*.11);g.gain.exponentialRampToValueAtTime(.18,t+i*.11+.02);g.gain.exponentialRampToValueAtTime(.0001,t+i*.11+.16);o.connect(g).connect(actx.destination);o.start(t+i*.11);o.stop(t+i*.11+.18)})}catch{}}
 const Rec=window.SpeechRecognition||window.webkitSpeechRecognition;
 

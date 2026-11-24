@@ -99,7 +99,7 @@ function grade(e,ok,{hint=false}={}){
 }
 function unitDone(u){return (prog().tests[u]||0)>=80}
 function unitOpen(u){return C.id==='custom'||u===0||unitDone(u-1)||(prog().tests[u]||0)>0}
-function stepsOf(u){const w=C.units[u]?.words||[],out=[];for(let i=0;i<w.length;i+=5)out.push(w.slice(i,i+5));return out}
+function stepsOf(u){const w=C.units[u]?.words||[],out=[],n=w[0]?.extra?.letter?2:5;for(let i=0;i<w.length;i+=n)out.push(w.slice(i,i+n));return out}
 function stepDone(u,k){return stepsOf(u)[k]?.every(e=>(W(e.id)?.lv||0)>=1)}
 function currentUnit(){for(let u=0;u<C.units.length;u++)if(!unitDone(u))return u;return Math.max(0,C.units.length-1)}
 function nextNewWords(n){const out=[];for(let u=0;u<C.units.length&&out.length<n;u++){if(!unitOpen(u))break;for(const e of C.units[u].words){if(!(W(e.id)?.lv)){out.push(e);if(out.length>=n)break}}}return out}

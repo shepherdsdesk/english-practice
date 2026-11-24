@@ -6,7 +6,8 @@ let S=null; // 지금 진행 중인 학습
 function isLetter(e){return !!e?.extra?.letter}
 function canSpeak(){return !!Rec&&!S?.noSpeak}
 function typeFor(e,{test=false}={}){
- if(isLetter(e)){const lv=W(e.id)?.lv||0;return pick(lv<=1?['L-listen','L-case']:['L-first','L-type','L-listen','L-case'])}
+ if(isLetter(e)){const lv=W(e.id)?.lv||0;if(test)return pick(['L-listen','L-pic','L-case','L-order']);return pick(lv<=1?['L-listen','L-case','L-pic']:['L-pic','L-order','L-case','L-trace','L-listen'])}
+ if(kidsWord(e)){const lv=W(e.id)?.lv||0;if(test)return pick(['K-pic','K-word']);return pick(lv<=1?['K-pic']:lv===2?['K-pic','K-word']:['K-word','order','K-pic'])}
  const lv=W(e.id)?.lv||0,ex=!!exampleOf(e);
  if(test)return pick(['listen','meaning','reverse','spell',...(ex?['cloze']:[])]);
  if(lv<=1)return pick(['listen','meaning']);
@@ -14,11 +15,11 @@ function typeFor(e,{test=false}={}){
  if(lv===3)return pick(['spell',ex?'cloze':'reverse']);
  return pick(['spell',...(canSpeak()?['speak']:['listen']),...(ex?['cloze']:[])]);
 }
-function newItems(e){return isLetter(e)?[{id:e.id,t:'L-intro'},{id:e.id,t:'L-listen'},{id:e.id,t:'L-case'}]:[{id:e.id,t:'intro'},{id:e.id,t:'listen'}]}
+function newItems(e){if(kidsWord(e))return [{id:e.id,t:'intro'},{id:e.id,t:'K-pic'}];return isLetter(e)?[{id:e.id,t:'L-intro'},{id:e.id,t:'L-trace'},{id:e.id,t:'L-pic'},{id:e.id,t:'L-case'}]:[{id:e.id,t:'intro'},{id:e.id,t:'listen'}]}
 function mkSession(kind,items,extra={}){
  state.onboarded=true;
  S={kind,items,i:0,ok:0,graded:0,wrong:new Map(),requeued:new Set(),newIds:new Set(items.filter(x=>x.t==='intro'||x.t==='L-intro').map(x=>x.id)),start:Date.now(),answer:null,noSpeak:false,...extra};
- S.learnedBefore=learned().length;
+ S.learnedBefore=learned().length;S.stickersBefore=stickerSnapshot();
  saveSession();scr('q');
 }
 /* ── 진행 중인 학습 저장과 이어 하기 ── */
@@ -54,11 +55,12 @@ function startStep(u,k){
  if(sameSession('step',u,k)){resumeSession();return}
  const words=stepsOf(u)[k];if(!words)return;
  const a=[],b=[],c=[];
- words.forEach(e=>{if(isLetter(e)){a.push({id:e.id,t:'L-intro'},{id:e.id,t:'L-listen'});b.push({id:e.id,t:'L-case'});c.push({id:e.id,t:'L-first'},{id:e.id,t:'L-type'});return}
+ words.forEach(e=>{if(isLetter(e)){a.push({id:e.id,t:'L-intro'},{id:e.id,t:'L-trace'},{id:e.id,t:'L-trace',lower:true});b.push({id:e.id,t:'L-pic'},{id:e.id,t:'L-listen'});c.push({id:e.id,t:'L-case'},{id:e.id,t:'L-order'});return}
+  if(kidsWord(e)){a.push({id:e.id,t:'intro'},{id:e.id,t:'K-pic'});b.push({id:e.id,t:'K-word'});c.push({id:e.id,t:'order'});return}
   a.push({id:e.id,t:'intro'},{id:e.id,t:'listen'});b.push({id:e.id,t:pick(['meaning','reverse'])},{id:e.id,t:'order'});c.push({id:e.id,t:'spell',hint:0})});
  mkSession('step',[...a,...shuffle(b),...shuffle(c)],{unit:u,step:k,title:C.units[u].name+' · '+(k+1)+'번째 걸음'});
 }
-function startWeak(){const w=weakWords();if(!w.length){toast('약한 단어가 없어요. 아주 잘하고 있어요!');return}mkSession('weak',shuffle(w.flatMap(e=>[{id:e.id,t:isLetter(e)?'L-listen':'meaning'},{id:e.id,t:isLetter(e)?'L-type':'spell',hint:1}])),{title:'약한 단어 5분 세트'})}
+function startWeak(){const w=weakWords();if(!w.length){toast('약한 단어가 없어요. 아주 잘하고 있어요!');return}mkSession('weak',shuffle(w.flatMap(e=>isLetter(e)?[{id:e.id,t:'L-listen'},{id:e.id,t:'L-pic'}]:kidsWord(e)?[{id:e.id,t:'K-pic'},{id:e.id,t:'K-word'}]:[{id:e.id,t:'meaning'},{id:e.id,t:'spell',hint:1}])),{title:'약한 단어 5분 세트'})}
 function startReviewAll(){const d=dueWords();if(!d.length){toast('지금 복습할 단어가 없어요.');return}mkSession('review',d.slice(0,20).map(e=>({id:e.id,t:typeFor(e)})),{title:'잊을 때쯤 복습'})}
 function startTest(u){
  if(sameSession('test',u)){resumeSession();return}
@@ -66,7 +68,7 @@ function startTest(u){
  let pool=shuffle(words).slice(0,10);while(pool.length<10&&words.length)pool.push(pick(words));
  mkSession('test',pool.map(e=>({id:e.id,t:typeFor(e,{test:true}),noHint:true})),{unit:u,title:(u+1)+'단원 시험'});
 }
-function startRetry(u,ids){mkSession('retry',ids.flatMap(id=>{const e=C.byId.get(id);return isLetter(e)?[{id,t:'L-intro'},{id,t:'L-case'},{id,t:'L-type'}]:[{id,t:'intro'},{id,t:'order'},{id,t:'spell',hint:1}]}),{unit:u,title:'틀린 단어 연습'})}
+function startRetry(u,ids){mkSession('retry',ids.flatMap(id=>{const e=C.byId.get(id);return isLetter(e)?[{id,t:'L-intro'},{id,t:'L-pic'},{id,t:'L-trace'}]:kidsWord(e)?[{id,t:'intro'},{id,t:'K-pic'},{id,t:'K-word'}]:[{id,t:'intro'},{id,t:'order'},{id,t:'spell',hint:1}]}),{unit:u,title:'틀린 단어 연습'})}
 
 /* ── 문제 화면 ── */
 function cur(){return S?.items[S.i]}
@@ -77,7 +79,7 @@ function distract(e,field,n=3){
  return shuffle([e[field],...pool.slice(0,n)]);
 }
 const KIND={intro:['새 단어','g'],listen:['듣기','b'],meaning:['뜻 고르기','b'],reverse:['영어 고르기','b'],order:['글자 순서','o'],spell:['철자 쓰기','o'],speak:['말하기','p'],cloze:['예문 속 단어','g'],
- 'L-intro':['오늘의 글자','g'],'L-listen':['듣기','b'],'L-case':['짝 찾기','o'],'L-first':['첫 글자 찾기','g'],'L-type':['글자 쓰기','o']};
+ 'L-intro':['오늘의 글자','g'],'L-listen':['듣기','b'],'L-case':['짝 찾기','o'],'L-first':['첫 글자 찾기','g'],'L-type':['글자 쓰기','o'],'L-pic':['그림 첫 글자','g'],'L-order':['빈칸 글자','b'],'L-trace':['따라 쓰기','o'],'K-pic':['그림 고르기','b'],'K-word':['영어 고르기','g']};
 SCREENS.q=()=>{
  if(!S)return SCREENS.today();
  if(S.i>=S.items.length){finishSession();return null}
@@ -94,7 +96,7 @@ SCREENS.q.after=()=>{saveSession();const it=cur();if(!it||S.answer)return;Q[it.t
 const confirmBtn=(ready,label='확인')=>`<button class="btn big primary" data-a="check" ${ready?'':'disabled'}>${label}</button>`;
 function optsHTML(list,{lang=''}={}){const a=S.answer;return `<div class="opts${list.some(o=>[...o].reduce((n,ch)=>n+(ch.charCodeAt(0)>255?2:1),0)>14)?' one':''}">${list.map((o,i)=>{let cls='opt',st='';if(a){if(norm(o)===norm(a.correct))cls+=' right';else if(i===S.sel)cls+=' wrong';else cls+=' dim'}return `<button type="button" class="${cls}" data-a="sel" data-v="${i}" aria-pressed="${S.sel===i}" ${a?'disabled':''} ${lang?`lang="${lang}"`:''}>${esc(o)}</button>`}).join('')}</div>`}
 const Q={};
-Q.intro=(it,e)=>{const ex=exampleOf(e);return {title:'새 단어를 만나요',html:`<div class="card intro"><span class="w" lang="en">${esc(e.word)}</span><span class="m">${esc(e.meaning)}</span><span class="sp" lang="en">${esc([...e.word].join(' '))}</span><div class="listen"><button class="main" data-a="say" data-v="${esc(e.word)}" aria-label="다시 듣기">${I(IC.speaker,48)}</button><button class="slow" data-a="saySlow" data-v="${esc(e.word)}" aria-label="천천히 듣기">${I(IC.speaker1,24)}천천히</button></div>${ex?`<p class="gl-en" lang="en" style="text-align:center">${esc(ex[0])}</p><p class="gl-ko" style="text-align:center;margin-top:-6px">${esc(ex[1])}</p>`:''}</div>`,foot:`<button class="btn big primary" data-a="introOk">알겠어요</button>`}};
+Q.intro=(it,e)=>{const ex=exampleOf(e),pc=picOf(e);return {title:'새 단어를 만나요',html:`<div class="card intro">${pc?`<span class="pic-big" aria-hidden="true">${pc}</span>`:''}<span class="w" lang="en">${esc(e.word)}</span><span class="m">${esc(e.meaning)}</span><span class="sp" lang="en">${esc([...e.word].join(' '))}</span><div class="listen"><button class="main" data-a="say" data-v="${esc(e.word)}" aria-label="다시 듣기">${I(IC.speaker,48)}</button><button class="slow" data-a="saySlow" data-v="${esc(e.word)}" aria-label="천천히 듣기">${I(IC.speaker1,24)}천천히</button></div>${ex?`<p class="gl-en" lang="en" style="text-align:center">${esc(ex[0])}</p><p class="gl-ko" style="text-align:center;margin-top:-6px">${esc(ex[1])}</p>`:''}</div>`,foot:`<button class="btn big primary" data-a="introOk">알겠어요</button>`}};
 Q.intro.after=(it,e)=>setTimeout(()=>say(e.word),200);
 Q.listen=(it,e)=>{it.list??=distract(e,'meaning');return {title:'잘 듣고 알맞은 뜻을 골라요',html:`<div class="listen"><button class="main" data-a="say" data-v="${esc(e.word)}" aria-label="다시 듣기">${I(IC.speaker,52)}</button><button class="slow" data-a="saySlow" data-v="${esc(e.word)}" aria-label="천천히 듣기">${I(IC.speaker1,24)}천천히</button></div>`+optsHTML(it.list),foot:confirmBtn(S.sel!=null)}};
 Q.listen.after=(it,e)=>setTimeout(()=>say(e.word),200);
@@ -144,6 +146,7 @@ Q['L-type'].after=()=>{const f=$('#spell');if(!f)return;f.oninput=()=>{cur().typ
 // 선택형 문제를 묶어서 정의해요.
 
 function correctOf(it,e){
+ if(it.t==='K-pic')return picOf(e);
  switch(it.t){case 'listen':case 'meaning':return e.meaning;case 'reverse':case 'cloze':return e.word;case 'L-listen':return e.word;case 'L-case':case 'L-first':case 'L-type':return e.word.toLowerCase();default:return e.word}
 }
 ACT.sel=v=>{if(S?.answer)return;S.sel=Number(v);SND.tap();const it=cur();if(it.t==='listen'||it.t==='L-listen'){}render()};
@@ -165,7 +168,7 @@ function answer(ok,got,{hint=false}={}){
  const it=cur(),e=curWord();S.answer={ok,got,correct:correctOf(it,e)};S.graded++;
  const d=today();d.q++;if(ok){S.ok++;d.c++;d.xp+=10}else d.xp+=2;
  grade(e,ok,{hint});
- if(!ok){S.wrong.set(e.id,(S.wrong.get(e.id)||0)+1);if(S.kind!=='test'&&!S.requeued.has(e.id)){S.requeued.add(e.id);S.items.push({id:e.id,t:isLetter(e)?'L-listen':(it.t==='speak'?'listen':it.t==='order'||it.t==='spell'?'reverse':it.t),again:true})}}
+ if(!ok){S.wrong.set(e.id,(S.wrong.get(e.id)||0)+1);if(S.kind!=='test'&&!S.requeued.has(e.id)){S.requeued.add(e.id);S.items.push({id:e.id,t:isLetter(e)?'L-listen':kidsWord(e)?'K-pic':(it.t==='speak'?'listen':it.t==='order'||it.t==='spell'?'reverse':it.t),again:true})}}
  sfx(ok);if(ok&&!isLetter(e))setTimeout(()=>say(e.word),150);
  persist();render();
 }
@@ -173,7 +176,7 @@ function answerSheet(it,e){
  const a=S.answer,ex=exampleOf(e);
  const head=a.ok?pick(PRAISE.ok):pick(PRAISE.no);
  return `<section class="sheet ${a.ok?'ok':'no'}" aria-live="polite"><div class="sheet-in"><div class="head"><i>${I(a.ok?IC.check:IC.redo,26,3)}</i><h2>${esc(head)}</h2></div>
- <div class="ans"><div style="min-width:0"><div class="nw" style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><span class="w" lang="en">${esc(e.word)}</span><span class="m">${esc(e.meaning)}</span></div>${ex&&!isLetter(e)?`<div class="nw ell" style="font-size:15px" lang="en">${esc(ex[0])}</div><div class="m ell">${esc(ex[1])}</div>`:''}${!a.ok&&a.got?`<div class="m">내 답: ${esc(a.got)}</div>`:''}</div>${sayBtn(isLetter(e)?e.word:(ex?.[0]||e.word))}</div>
+ <div class="ans">${picOf(e)&&!isLetter(e)?`<span class="pic-ans" aria-hidden="true">${picOf(e)}</span>`:''}<div style="min-width:0"><div class="nw" style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><span class="w" lang="en">${esc(e.word)}</span><span class="m">${esc(e.meaning)}</span></div>${ex&&!isLetter(e)?`<div class="nw ell" style="font-size:15px" lang="en">${esc(ex[0])}</div><div class="m ell">${esc(ex[1])}</div>`:''}${!a.ok&&a.got?`<div class="m">내 답: ${esc(a.got)}</div>`:''}</div>${sayBtn(isLetter(e)?e.word:(ex?.[0]||e.word))}</div>
  <button class="btn big primary" data-a="next" autofocus>계속하기</button>${!a.ok&&S.kind!=='test'?'<p class="note" style="text-align:center">이 단어는 조금 뒤에 한 번 더 나와요</p>':''}</div></section>`;
 }
 ACT.next=()=>{S.i++;S.answer=null;S.sel=null;render()};
@@ -193,7 +196,8 @@ function finishSession(){
   if(pts>=80){scr('pass',{unit:s.unit,score:pts})}else scr('retry',{unit:s.unit,score:pts,wrong:[...s.wrong.keys()]});return;
  }
  const after=learned().length;
- const res={kind:s.kind,total:s.graded,ok:s.ok,newCount:s.newIds.size,before:s.learnedBefore,after,title:s.title,unit:s.unit,step:s.step,pair:pick(PRAISE.done)};
+ const sb=new Set(s.stickersBefore||[]);const newStickers=stickerSnapshot().filter(x=>!sb.has(x));
+ const res={newStickers,kind:s.kind,total:s.graded,ok:s.ok,newCount:s.newIds.size,before:s.learnedBefore,after,title:s.title,unit:s.unit,step:s.step,pair:pick(PRAISE.done)};
  recordReport(s.title+' 완료 · 정답 '+s.ok+'/'+s.graded+'\n공부한 단어 '+words.map(w=>w.word).join(', ')+'\n다시 볼 단어 '+([...s.wrong.keys()].map(id=>C.byId.get(id)?.word).join(', ')||'없음'));
  persist();save();
  if(s.kind==='retry'){scr('done',{...res,retryUnit:s.unit});return}
@@ -204,7 +208,7 @@ SCREENS.done=p=>{
  return `<main class="screen narrow" style="padding-top:48px">${celebrate()}
  <section class="center"><h1 class="t-display">${esc(p.pair[0])}</h1><p>${esc((who?who+', ':'')+p.pair[1])}</p></section>
  <section class="tiles3"><div class="stat y"><span>정답</span><b>${p.ok}/${p.total}</b></div><div class="stat g"><span>새 단어</span><b>${p.newCount}개</b></div><div class="stat o"><span>연속</span><b>${streak()}일</b></div></section>
- <section class="card tight card-title"><span class="h-sm">익힌 단어</span><span class="nw" style="font-weight:700;color:var(--brand-t)">${p.before}개 → ${p.after}개</span></section>
+ ${p.newStickers?.length?`<section class="card stack center" style="background:var(--yellow-soft);border-color:transparent"><b class="t-display" style="font-size:20px;color:var(--yellow-t)">새 스티커를 받았어요!</b><div style="display:grid;grid-template-columns:repeat(auto-fit,72px);gap:10px;justify-content:center;width:100%">${p.newStickers.map(ch=>stickerHTML(stickerLetters().find(e=>e.word===ch))).join('')}</div><button class="btn sm" data-a="stickers">스티커 판 보기</button></section>`:''}<section class="card tight card-title"><span class="h-sm">익힌 단어</span><span class="nw" style="font-weight:700;color:var(--brand-t)">${p.before}개 → ${p.after}개</span></section>
  <div class="grow"></div>
  ${p.retryUnit!=null?`<button class="btn big blue" data-a="test" data-v="${p.retryUnit}">다시 시험 보기</button><button class="btn ghost full" data-a="tab" data-v="path">나중에 할래요</button>`:`<button class="btn big primary" data-a="tab" data-v="${p.kind==='step'?'path':'today'}">계속하기</button>`}</main>`;
 };

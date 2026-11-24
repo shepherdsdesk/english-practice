@@ -55,7 +55,7 @@ async function issueCode(e,restoreFrom=null,nameArg=null,roleArg=null){
  const code=Array.from(crypto.getRandomValues(new Uint32Array(8)),x=>x%10).join('');
  try{const c=await cloud(),u=await me();const data={name,role,family:u.family,created:c.store.serverTimestamp()};if(restoreFrom)data.restoreFrom=restoreFrom;await c.store.setDoc(fdoc(c,'invites',code),data);
   if($('#iname'))$('#iname').value='';
-  const box=$('#issued');if(box)box.innerHTML=`<div class="issued" style="margin-top:4px"><span class="tag ${role==='student'?'b':'o'}">${role==='student'?'학생용':'보호자용'}${restoreFrom?' · 진도 이어받기':''}</span><b>${esc(name)}</b><strong>${code.match(/.{4}/g).join(' ')}</strong><small class="muted">${role==='student'?'학생':'보호자'} 기기의 "나 → 연결 코드 입력"에 넣으세요.</small></div>`;
+  const box=$('#issued');if(box){box.innerHTML=inviteCardHTML(name,code,role,!!restoreFrom);fillInviteQR(code,role)}
   box?.scrollIntoView({block:'center'});
  }catch{toast('발급하지 못했어요. 연결을 확인하고 다시 시도하세요.')}
 }
@@ -69,8 +69,8 @@ function watchMembers(){
    const cmds={};await Promise.all(rows.filter(r=>r.claimed&&r.role==='student').map(async r=>{try{cmds[r.claimed]=(await c.store.getDoc(fdoc(c,'families',u.family,'commands',r.claimed))).data()||{}}catch{}}));
    box.innerHTML=rows.map(r=>{const st=r.claimed?stats[r.claimed]:null;const when=(r.claimed?r.claimedAt:r.created)?.toDate?.();const theo=(cmds[r.claimed]?.unlocks||[]).includes('theo');
     return `<div class="member"><span class="who"><b>${esc(r.name)}</b><span class="tag ${r.role==='student'?'b':'o'}">${r.role==='student'?'학생':'보호자'}</span></span><span class="tag ${r.claimed?'g':'gray'}">${r.claimed?'연결됨':'대기 중'}</span>
-    <small>${r.code.replace(/(\d{4})(?=\d)/,'$1 ')}${when?' · '+when.toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'})+(r.claimed?' 연결':' 발급'):''}${st?' · '+esc(st.course||'')+' · 다 외운 단어 '+(st.mastered||0)+'개':''}</small>
-    <div class="acts">${r.claimed&&r.role==='student'?`<button class="btn" data-a="mReset" data-v="${r.claimed}">진도 초기화</button><button class="btn" data-a="mTheo" data-v="${r.claimed}|${theo?0:1}">${theo?'신학 용어 닫기':'신학 용어 열기'}</button><button class="btn" data-a="mMove" data-v="${r.claimed}|${esc(r.name)}">새 기기로 옮기기</button>`:''}<button class="btn" data-a="mUnlink" data-v="${r.code}|${r.claimed||''}">${r.claimed?'연결 해제':'코드 취소'}</button></div></div>`}).join('');
+    <small>${r.code.replace(/(\d{4})(?=\d)/,'$1 ')}${when?' · '+when.toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'})+(r.claimed?' 연결':' 발급'):''}${st?(()=>{const s=studyInfo(st);return '<br>마지막 공부 '+s.last+' · 이번 주 '+s.weekQ+'문제 · '+s.points+'점 · 다 외운 단어 '+(st.mastered||0)+'개'})():r.claimed&&r.role==='student'?'<br>아직 공부 기록이 없어요':''}</small>
+    <div class="acts">${r.claimed&&r.role==='student'?`<button class="btn" data-a="mReset" data-v="${r.claimed}">진도 초기화</button><button class="btn" data-a="mTheo" data-v="${r.claimed}|${theo?0:1}">${theo?'신학 용어 닫기':'신학 용어 열기'}</button><button class="btn" data-a="mMove" data-v="${r.claimed}|${esc(r.name)}">새 기기로 옮기기</button>`:''}${r.claimed?'':`<button class="btn" data-a="invShow" data-v="${r.code}|${r.role}|${esc(r.name)}">링크·QR 보기</button>`}<button class="btn" data-a="mUnlink" data-v="${r.code}|${r.claimed||''}">${r.claimed?'연결 해제':'코드 취소'}</button></div></div>`}).join('');
   },()=>{const b=$('#members');if(b)b.innerHTML='<p class="empty">가족 목록을 불러오지 못했어요.</p>'});
   V._cleanup=stop;
  }catch{}})();
@@ -149,7 +149,7 @@ async function loadFamily(){try{const c=await cloud(),u=await me();if(!u)return;
  const [st,cl]=await Promise.all([c.store.getDocs(c.store.collection(c.db,'families',u.family,'stats')),c.store.getDocs(c.store.collection(c.db,'families',u.family,'couponLog'))]);
  family.stats=st.docs.map(d=>({uid:d.id,...d.data()})).filter(x=>x.role==='student');family.coupons=cl.docs.map(d=>({id:d.id,...d.data(),time:d.data().time?.toMillis?.()||0})).sort((a,b)=>b.time-a.time)}catch{family.stats=family.stats||[];family.coupons=family.coupons||[]}}
 SCREENS.report=p=>{
- const list=family.stats;const head=`<header class="hdr3"><button class="iconbtn" data-a="tab" data-v="me" aria-label="뒤로">${I(IC.back,24,2.4)}</button><h1 class="t-display">주간 리포트</h1><span></span></header>`;
+ const list=family.stats;const head=`<header class="hdr3"><button class="iconbtn" data-a="tab" data-v="${V.tab}" aria-label="뒤로">${I(IC.back,24,2.4)}</button><h1 class="t-display">주간 리포트</h1><span></span></header>`;
  if(!list)return `<main class="screen narrow">${head}<p class="empty">불러오고 있어요.</p></main>`;
  if(!list.length)return `<main class="screen narrow">${head}<div class="card empty">아직 연결된 학생의 기록이 없어요.</div></main>`;
  const sel=list.find(x=>x.uid===p.uid)||list[0];let days={},weak=[];try{days=JSON.parse(sel.days||'{}');weak=JSON.parse(sel.weak||'[]')}catch{}
@@ -167,7 +167,7 @@ SCREENS.report=p=>{
  <section class="card stack"><label class="field" for="cheerText">칭찬 한마디 보내기</label><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px"><input id="cheerText" class="input" maxlength="60" placeholder="오늘도 정말 멋졌어!"><button class="btn primary" style="margin:0;box-shadow:none" data-a="cheer" data-v="${sel.uid}">보내기</button></div></section>
  <p class="note" style="text-align:center">누적 · 익힌 단어 ${sel.learned||0}개 · 다 외운 단어 ${sel.mastered||0}개 · ${sel.streak||0}일 연속</p></main>`;
 };
-SCREENS.report.after=p=>{if(!p.loaded){p.loaded=true;loadFamily().then(()=>{if(V.screen==='report')render()})}};
+SCREENS.report.after=p=>{if(p.cheer){p.cheer=false;const c=$('#cheerText');if(c){c.scrollIntoView({block:'center'});c.focus()}}if(!p.loaded){p.loaded=true;loadFamily().then(()=>{if(V.screen==='report')render()})}};
 ACT.rsel=v=>{V.p.uid=v;render()};
 ACT.cheer=async(v,el)=>{const t=$('#cheerText').value.trim();if(!t)return;el.disabled=true;try{const c=await cloud(),u=await me();await c.store.setDoc(fdoc(c,'families',u.family,'cheers',crypto.randomUUID()),{to:v,from:u.name||(u.role==='admin'?'관리자':'보호자'),text:t.slice(0,60),time:c.store.serverTimestamp()});$('#cheerText').value='';toast('칭찬을 보냈어요!')}catch{toast('보내지 못했어요.')}finally{el.disabled=false}};
 async function checkCheers(){if(state.cloudRole!=='student')return;try{const c=await cloud(),u=await me();const q=c.store.query(c.store.collection(c.db,'families',u.family,'cheers'),c.store.where('to','==',u.uid));const s=await c.store.getDocs(q);
@@ -175,7 +175,7 @@ async function checkCheers(){if(state.cloudRole!=='student')return;try{const c=a
 
 /* ── 보호자: 쿠폰 관리 ── */
 SCREENS.coupons=p=>{
- const cfg=couponConfig;const head=`<header class="hdr"><button class="iconbtn" data-a="tab" data-v="me" aria-label="뒤로">${I(IC.back,24,2.4)}</button><h1 class="t-display" style="flex:1">쿠폰 관리</h1><span class="tag o">보호자용</span></header>`;
+ const cfg=couponConfig;const head=`<header class="hdr">${V.screen?`<button class="iconbtn" data-a="tab" data-v="${V.tab}" aria-label="뒤로">${I(IC.back,24,2.4)}</button>`:''}<h1 class="t-display" style="flex:1">쿠폰 관리</h1><span class="tag o">보호자용</span></header>`;
  if(!cfg||!family.coupons)return `<main class="screen narrow">${head}<p class="empty">불러오고 있어요.</p></main>`;
  const reqs=family.coupons.filter(x=>x.status==='requested');
  return `<main class="screen narrow">${head}
@@ -188,7 +188,7 @@ SCREENS.coupons=p=>{
  <p class="note" id="cNote" role="status"></p></main>`;
 };
 SCREENS.coupons.after=p=>{
- if(!p.loaded){p.loaded=true;Promise.all([loadCouponConfig(),loadFamily()]).then(()=>{if(V.screen==='coupons')render()});return}
+ if(!p.loaded){p.loaded=true;Promise.all([loadCouponConfig(),loadFamily()]).then(()=>{if(V.screen==='coupons'||V.tab==='coupons'&&!V.screen)render()});return}
  const f=$('#cnew');if(f)f.onsubmit=e=>{e.preventDefault();const t=$('#cnewIn').value.trim();if(!t)return;(couponConfig.custom??=[]).push({title:t.slice(0,20),on:true});saveCoupons()};
  const h=$('#chigh');if(h)h.onchange=()=>{couponConfig.high=Number(h.value);saveCoupons()};
 };
@@ -201,7 +201,7 @@ ACT.cdel=v=>{couponConfig.custom.splice(Number(v),1);saveCoupons()};
 ACT.capprove=async v=>{const [id,st]=v.split('|');try{const c=await cloud(),u=await me();await c.store.updateDoc(fdoc(c,'families',u.family,'couponLog',id),{status:st,changed:c.store.serverTimestamp()});const x=family.coupons.find(y=>y.id===id);if(x)x.status=st;toast(st==='approved'?'허락했어요. 아이에게 알렸어요.':'다음에 쓰자고 알렸어요.');render()}catch{toast('보내지 못했어요.')}};
 
 /* ── 보호자: 학습 보고함 ── */
-SCREENS.reports=()=>`<main class="screen narrow"><header class="hdr3"><button class="iconbtn" data-a="tab" data-v="me" aria-label="뒤로">${I(IC.back,24,2.4)}</button><h1 class="t-display">학습 보고함</h1><span></span></header><p class="note" id="repNote" role="status">불러오고 있어요.</p><section class="card flush" id="repList"></section></main>`;
+SCREENS.reports=()=>`<main class="screen narrow"><header class="hdr3"><button class="iconbtn" data-a="tab" data-v="${V.tab}" aria-label="뒤로">${I(IC.back,24,2.4)}</button><h1 class="t-display">학습 보고함</h1><span></span></header><p class="note" id="repNote" role="status">불러오고 있어요.</p><section class="card flush" id="repList"></section></main>`;
 SCREENS.reports.after=()=>{(async()=>{try{const c=await cloud(),u=await me();const q=c.store.query(c.store.collection(c.db,'families',u.family,'reports'),c.store.orderBy('time','desc'),c.store.limit(40));
  const stop=c.store.onSnapshot(q,snap=>{const box=$('#repList');if(!box)return;box.innerHTML=snap.docs.map(d=>{const r=d.data();return `<div class="report-item"><small>${esc(r.time?.toDate?.().toLocaleString('ko-KR')||'')}</small>${esc(r.body)}</div>`}).join('')||'<p class="empty">아직 보고가 없어요.</p>';$('#repNote').textContent='실시간 연결 · 최근 '+snap.size+'건'},()=>{$('#repNote').textContent='보고함을 불러오지 못했어요.'});V._cleanup=stop}catch{$('#repNote').textContent='가족 연결을 확인하세요.'}})()};
 
@@ -209,11 +209,13 @@ SCREENS.reports.after=()=>{(async()=>{try{const c=await cloud(),u=await me();con
 async function boot(){
  const q=new URLSearchParams(location.search);
  try{await useCourse(state.course||modeInfo().courses[0])}catch{try{await useCourse('basic')}catch{}}
- if(q.has('parent')){V.tab='me';if(!state.cloudRole)V.screen='pair'}
- else if(state.cloudRole==='parent'||state.cloudRole==='admin')V.tab='me';
+ const code=(q.get('code')||'').replace(/\D/g,'');
+ if(state.cloudRole==='parent'||state.cloudRole==='admin')V.tab='family';
+ if(!state.cloudRole&&(code.length===8||q.has('parent'))){V.screen='pair';V.p={code,as:q.has('parent')?'parent':'student',back:needsWelcome()?'welcome':'me'}}
+ else if(needsWelcome())V.screen='welcome';
  render();
  if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('./sw.js').catch(()=>{});let reloaded=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(reloaded||S)return;reloaded=true;location.reload()})}
- if(state.cloudRole||state.cloudUid){identify().then(u=>{if(u){refresh();flushReports();checkCheers();loadLeague().then(()=>{if(!V.screen&&['today','me'].includes(V.tab))refresh()})}}).catch(()=>{})}
+ if(state.cloudRole||state.cloudUid){identify().then(u=>{if(u){if((u.role==='parent'||u.role==='admin')&&V.tab==='me'&&!V.screen)V.tab='family';refresh();flushReports();checkCheers();loadLeague().then(()=>{if(!V.screen&&['today','me'].includes(V.tab))refresh()})}}).catch(()=>{})}
  setInterval(()=>{if(state.cloudRole)syncCloud()},5*60*1000);
  document.addEventListener('visibilitychange',()=>{if(document.hidden&&state.cloudRole)syncCloud()});
 }

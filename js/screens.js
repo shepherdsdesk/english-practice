@@ -18,7 +18,7 @@ SCREENS.today=()=>{
  <header class="top-chips"><button class="chip btn-chip" data-a="tab" data-v="me"><span style="width:8px;height:8px;border-radius:4px;background:var(--brand)"></span>${esc(COURSES[C.id]?.name||'')} 과정</button><span class="r">${state.cloudRole?`<button class="chip b btn-chip" data-a="open" data-v="league">${I(IC.trophy,16,1.6)}리그${leagueRank()?' '+leagueRank()+'등':''}</button>`:''}<span class="chip y">${I(IC.flame,18)}${streak()}일 연속</span></span></header>
  <div class="split"><div>
  <section class="card hello">${mascot(88)}<div style="min-width:0"><p>${who?esc(who)+', 반가워요!':'반가워요!'}</p><h1 class="t-display">오늘도 한 걸음<br>같이 걸어 볼까요?</h1></div></section>
- ${cheerHTML()}
+ ${connectTipHTML()}${cheerHTML()}
  <section class="card"><div class="goal-row"><span>오늘 목표</span><span>${Math.min(d.q,goal)} / ${goal} 문제</span></div><div class="bar"><i style="width:${pct}%"></i></div></section>
  <section class="card tight"><div class="week">${wk.map((k,i)=>`<div>${'월화수목금토일'[i]}<i class="${state.days[k]?.q?'on':''} ${k===todayK?'today':''}"></i></div>`).join('')}</div></section>
  </div><div>
@@ -33,6 +33,7 @@ function kidsToday(){
  const ex=nxt?.extra?.ex;const who=callName();
  return `<main class="screen">
  <header class="hello" style="gap:12px">${mascot(72)}<div class="card tight t-display" style="flex:1;font-size:22px;padding:12px 16px">${who?esc(who)+', ':''}같이 놀자!</div></header>
+ ${connectTipHTML()}
  ${nxt?`<section class="card letter-card"><span class="t-display muted" style="font-size:18px">${isLetter(nxt)?'오늘의 글자':'오늘의 단어'}</span>${isLetter(nxt)?`<div class="letter-big"><span class="u">${esc(nxt.word)}</span><span class="l">${esc(nxt.word.toLowerCase())}</span></div>`:`<div class="t-display" style="font-size:56px;color:var(--blue)" lang="en">${esc(nxt.word)}</div>`}${ex?`<div class="t-display" style="font-size:30px" lang="en"><span style="color:var(--blue)">${esc(ex[0][0])}</span>${esc(ex[0].slice(1))} <span class="muted" style="font-size:20px">${esc(ex[1])}</span></div>`:`<div class="t-display muted" style="font-size:22px">${esc(nxt.meaning)}</div>`}</section>`:''}
  <section class="tiles3">
   <button class="btn blue t-display" style="height:96px;flex-direction:column;gap:6px;font-size:20px;font-weight:400;border-radius:24px" data-a="say" data-v="${esc(nxt?.word||'A')}">${I(IC.speaker,30)}듣기</button>
@@ -134,13 +135,14 @@ SCREENS.me=()=>{
  ${state.cloudRole==='student'?`<h2 class="sec-label">내 쿠폰</h2><section class="card flush">${myC.length?myC.map(c=>`<div class="lrow two"><span style="min-width:0"><b style="display:block">${esc(c.title)}</b><small class="muted">${{earned:'아직 안 씀',requested:'보호자 허락을 기다려요',approved:'허락됐어요! 써도 돼요',later:'다음에 쓰기로 했어요'}[c.status]||''}</small></span>${c.status==='earned'||c.status==='later'?`<button class="btn sm primary" data-a="cuse" data-v="${esc(c.id)}">쓰기</button>`:c.status==='approved'?`<button class="btn sm" data-a="cdone" data-v="${esc(c.id)}">다 썼어요</button>`:'<span class="tag b">기다리는 중</span>'}</div>`).join(''):'<p class="empty">단원 시험을 통과하면 쿠폰을 받아요.</p>'}</section>`:''}
  <section class="card flush list">
   ${state.cloudRole?`<button class="lrow chev" data-a="open" data-v="league"><span class="t">가족 주간 리그</span><span class="v">${leagueRank()?leagueRank()+'등':''}</span>${I(IC.next,16,2.4)}</button>`:''}
-  ${state.cloudRole==='parent'||state.cloudRole==='admin'?`<button class="lrow chev" data-a="open" data-v="report"><span class="t">주간 리포트</span><span class="v">보호자</span>${I(IC.next,16,2.4)}</button><button class="lrow chev" data-a="open" data-v="coupons"><span class="t">쿠폰 관리</span><span class="v">보호자</span>${I(IC.next,16,2.4)}</button><button class="lrow chev" data-a="open" data-v="reports"><span class="t">학습 보고함</span><span class="v"></span>${I(IC.next,16,2.4)}</button>`:''}
-  ${state.cloudRole?`<div class="lrow two"><span class="t">가족 연결</span><span class="tag g">연결됨</span></div>`:`<button class="lrow chev" data-a="open" data-v="pair"><span class="t">연결 코드 입력</span><span class="v">8자리</span>${I(IC.next,16,2.4)}</button>`}
+  ${state.cloudRole==='parent'||state.cloudRole==='admin'?`<button class="lrow chev" data-a="open" data-v="report"><span class="t">주간 리포트</span><span class="v">보호자</span>${I(IC.next,16,2.4)}</button><button class="lrow chev" data-a="open" data-v="reports"><span class="t">학습 보고함</span><span class="v"></span>${I(IC.next,16,2.4)}</button>`:''}
+  ${state.cloudRole?'':`<button class="lrow chev" data-a="open" data-v="pair"><span class="t">가족과 연결하기</span><span class="v">코드·링크</span>${I(IC.next,16,2.4)}</button>`}
   <button class="lrow chev" data-a="admin"><span class="t">관리자 메뉴</span><span class="v">${state.pinHash?'PIN':''}</span>${I(IC.next,16,2.4)}</button>
   ${installable()?`<button class="lrow chev" data-a="install"><span class="t">홈 화면에 추가</span><span class="v"></span>${I(IC.next,16,2.4)}</button>`:''}
- </section></main>`;
+ </section>
+ ${familyStatusHTML()}</main>`;
 };
-SCREENS.me.after=()=>{if(state.cloudRole&&!leagueCache)loadLeague().then(()=>{if(V.tab==='me'&&!V.screen)render()})};
+SCREENS.me.after=()=>{if(state.cloudRole&&!leagueCache)loadLeague().then(()=>{if(V.tab==='me'&&!V.screen)render()});if(state.cloudRole&&!familyCache)loadFamilyMembers().then(()=>{if(V.tab==='me'&&!V.screen)refresh()})};
 ACT.mode=async v=>{state.mode=v;const first=modeInfo().courses[0];try{await useCourse(modeInfo().courses.includes(C.id)?C.id:first)}catch{toast('과정을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.')}render()};
 ACT.course=async v=>{try{await useCourse(v);render()}catch{toast('과정을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.')}};
 ACT.goal=v=>{state.goal=Number(v);persist();render()};
@@ -162,23 +164,6 @@ SCREENS.league=()=>{
  <p class="note" style="text-align:center">맞힌 문제마다 점수 · 월요일마다 새로 시작해요</p></main>`;
 };
 SCREENS.league.after=()=>{if(leagueCache==null||!V.p.loaded){V.p.loaded=true;syncCloud().finally(()=>loadLeague().then(()=>{if(V.screen==='league')render()}))}};
-
-/* 연결 코드 */
-SCREENS.pair=()=>`<main class="screen narrow"><header class="hdr3"><button class="iconbtn" data-a="tab" data-v="me" aria-label="뒤로">${I(IC.back,24,2.4)}</button><h1 class="t-display">기기 연결</h1><span></span></header>
- <section class="card stack center" style="padding:28px 20px">${mascot(84)}<p style="margin:0;font-size:16px">관리자에게 받은 <b>8자리 코드</b>를 입력하세요.</p>
- <form id="pairForm" class="stack" style="width:100%"><label class="sr" for="code">연결 코드</label><input id="code" class="input code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="9" placeholder="0000 0000"><button class="btn big primary">연결하기</button></form><p class="note" id="pairNote" role="status"></p></section></main>`;
-SCREENS.pair.after=()=>{const f=$('#pairForm'),box=$('#code'),note=$('#pairNote');
- box.oninput=()=>{const d=box.value.replace(/\D/g,'').slice(0,8);box.value=d.length>4?d.slice(0,4)+' '+d.slice(4):d};
- f.onsubmit=async ev=>{ev.preventDefault();const code=box.value.replace(/\D/g,'');if(!/^\d{8}$/.test(code)){note.textContent='숫자 8자리를 확인하세요.';return}
-  const btn=f.querySelector('button');btn.disabled=true;note.textContent='연결을 확인하고 있어요.';
-  try{const c=await cloud(),user=c.auth.currentUser||(await c.authApi.signInAnonymously(c.auth)).user;const ref=fdoc(c,'members',user.uid);
-   let member=(await c.store.getDoc(ref)).data();let restore=null;
-   if(!member){const inv=fdoc(c,'invites',code);await c.store.runTransaction(c.db,async tx=>{const v=(await tx.get(inv)).data();if(!v||v.claimed)throw Error('invalid');restore=v.restoreFrom||null;tx.set(ref,{name:v.name,family:v.family,role:v.role,code});tx.update(inv,{claimed:user.uid,claimedAt:c.store.serverTimestamp()})})}
-   const u=await identify();
-   if(restore&&u){note.textContent='예전 진도를 가져오고 있어요.';if(await restoreProgress(c,u.family,restore)){await useCourse(state.course);toast('예전 진도를 이어받았어요!')}}
-   flushReports();go(u?.role==='student'?'today':'me');toast((u?.name?u.name+' · ':'')+'연결됐어요!');
-  }catch{note.textContent='코드를 다시 확인하세요. 이미 쓴 코드는 다시 쓸 수 없어요. 인터넷 연결도 확인해 주세요.';btn.disabled=false}};
- box.focus()};
 
 /* 설치 */
 let installEvt=null;

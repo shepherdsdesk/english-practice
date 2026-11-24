@@ -129,8 +129,8 @@ function sfx(ok){if(!state.sfx)return;try{actx??=new (window.AudioContext||windo
 const Rec=window.SpeechRecognition||window.webkitSpeechRecognition;
 
 /* ── 칭찬 ── */
-function callName(){const n=(state.cloudName||'').trim();if(!n)return '';const g=/^[가-힣]{3}$/.test(n)?n.slice(1):n,last=g.charCodeAt(g.length-1);return /[가-힣]$/.test(g)?g+((last-0xAC00)%28?'아':'야'):g}
-function nameOnly(){const n=(state.cloudName||'').trim();return /^[가-힣]{3}$/.test(n)?n.slice(1):n}
+function callName(){const n=(state.cloudName||state.localName||'').trim();if(!n)return '';const g=/^[가-힣]{3}$/.test(n)?n.slice(1):n,last=g.charCodeAt(g.length-1);return /[가-힣]$/.test(g)?g+((last-0xAC00)%28?'아':'야'):g}
+function nameOnly(){const n=(state.cloudName||state.localName||'').trim();return /^[가-힣]{3}$/.test(n)?n.slice(1):n}
 const PRAISE={
  ok:['정답! 원어민 같아요','정답! 완전 칭찬해요','맞았어요! 영어 천재','정답! 척척박사','맞았어요! 최고예요','Perfect! 완벽해요','Great! 아주 좋아요','정답! 실력이 쑥쑥 자라요'],
  no:['괜찮아요, 다시 해 봐요','아깝다! 거의 맞았어요','틀려도 괜찮아요','다음엔 꼭 맞힐 거예요'],

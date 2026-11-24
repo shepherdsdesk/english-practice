@@ -16,6 +16,7 @@ function typeFor(e,{test=false}={}){
 }
 function newItems(e){return isLetter(e)?[{id:e.id,t:'L-intro'},{id:e.id,t:'L-listen'},{id:e.id,t:'L-case'}]:[{id:e.id,t:'intro'},{id:e.id,t:'listen'}]}
 function mkSession(kind,items,extra={}){
+ state.onboarded=true;
  S={kind,items,i:0,ok:0,graded:0,wrong:new Map(),requeued:new Set(),newIds:new Set(items.filter(x=>x.t==='intro'||x.t==='L-intro').map(x=>x.id)),start:Date.now(),answer:null,noSpeak:false,...extra};
  S.learnedBefore=learned().length;
  scr('q');

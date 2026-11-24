@@ -63,7 +63,9 @@ function go(tab,screen=null,p={}){stopSound();if(tab)V.tab=tab;V.screen=screen;V
 function scr(screen,p={}){go(null,screen,p)}
 function refresh(){if(document.activeElement?.matches?.('input,textarea')&&!V.forceRefresh)return;render()}
 const TABS=[['today','오늘',IC.home],['path','학습 지도',IC.map],['words','내 단어',IC.book],['me','나',IC.user]];
-function tabbar(){const kids=themeOf()==='kids';return `<nav class="tabbar" aria-label="주요 메뉴"><span class="rail-brand">워드스텝</span>${TABS.map(([id,label,ic])=>`<button type="button" class="tab" data-a="tab" data-v="${id}" ${V.tab===id&&!V.screen?'aria-current="page"':''}><span class="pill">${I(ic,22)}</span>${kids&&id==='today'?'놀이':label}</button>`).join('')}</nav>`}
+const GUARDIAN_TABS=[['family','우리 아이',IC.users],['coupons','쿠폰',IC.gift],['today','공부',IC.book],['me','나',IC.user]];
+function tabsFor(){return state.cloudRole==='parent'||state.cloudRole==='admin'?GUARDIAN_TABS:TABS}
+function tabbar(){const kids=themeOf()==='kids';return `<nav class="tabbar" aria-label="주요 메뉴"><span class="rail-brand">워드스텝</span>${tabsFor().map(([id,label,ic])=>`<button type="button" class="tab" data-a="tab" data-v="${id}" ${V.tab===id&&!V.screen?'aria-current="page"':''}><span class="pill">${I(ic,22)}</span>${kids&&id==='today'?'놀이':label}</button>`).join('')}</nav>`}
 const SCREENS={};
 function render(){
  const th=themeOf();document.body.className='t-'+th;
